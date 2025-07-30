@@ -14,10 +14,6 @@ export class UsersService {
     return this.prisma.user.create({ data: createUserDto});
   }
 
-  findTests() {
-    return this.prisma.user.findMany({ where: { email: {contains: "test.com" } } });
-  }
-
   findAll() {
     //return `This action returns all users`;
     return this.prisma.user.findMany({ where: { firstName: {not: null } } });
@@ -29,6 +25,24 @@ export class UsersService {
       where: { id },
       include: {
         roles: true,
+      },
+     });
+  }
+
+  findNotifications(id: string) {
+    return this.prisma.user.findUnique({ 
+      where: { id },
+      include: {
+        notifications: true,
+      },
+     });
+  }
+
+  findFiles(id: string) {
+    return this.prisma.user.findUnique({ 
+      where: { id },
+      include: {
+        files: true,
       },
      });
   }

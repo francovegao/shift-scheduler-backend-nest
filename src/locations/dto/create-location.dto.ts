@@ -1,11 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MinLength, IsEmail, IsBoolean } from 'class-validator';
+import { IsNotEmpty, IsString, MinLength, IsEmail, IsBoolean, IsOptional } from 'class-validator';
 
-export class CreateCompanyDto {
-  
-  @IsBoolean()
-  @ApiProperty({ default: true })
-  approved?: boolean = true;
+export class CreateLocationDto {
 
   @IsString()
   @IsNotEmpty()
@@ -14,10 +10,12 @@ export class CreateCompanyDto {
   name: string;
 
   @IsEmail()
+  @IsOptional()
   @ApiProperty({ required: false })
   email?: string;
 
   @IsString()
+  @IsOptional()
   @ApiProperty({ required: false })
   phone?: string;
 
@@ -40,6 +38,5 @@ export class CreateCompanyDto {
   @IsString()
   @IsNotEmpty()
   @ApiProperty()
-  createdBy: string;
+  companyId: string
 }
-

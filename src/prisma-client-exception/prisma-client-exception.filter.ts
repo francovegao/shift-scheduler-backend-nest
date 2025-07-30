@@ -11,10 +11,19 @@ export class PrismaClientExceptionFilter extends BaseExceptionFilter {
     const response = ctx.getResponse<Response>();
     const message = exception.message.replace(/\n/g, '');
 
+    //TODO: Erase code responses
     //Handle the error messages to not leak any sensitive information to the user in the error message.
     //Create custom validation for IsUnique
     switch (exception.code) {
       case 'P2002': {
+        const status = HttpStatus.CONFLICT;
+        response.status(status).json({
+          statusCode: status,
+          message: message,
+        });
+        break;
+      }
+      case 'P2003': {
         const status = HttpStatus.CONFLICT;
         response.status(status).json({
           statusCode: status,

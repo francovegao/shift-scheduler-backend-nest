@@ -16,12 +16,6 @@ export class UsersController {
     return this.usersService.create(createUserDto);
   }
 
-  @Get('tests')
-  @ApiOkResponse({ type: UserEntity, isArray: true })
-  findTests() {
-    return this.usersService.findTests();
-  }
-
   @Get()
   @ApiOkResponse({ type: UserEntity, isArray: true })
   findAll() {
@@ -38,6 +32,18 @@ export class UsersController {
       throw new NotFoundException(`User ${id} does not exist.`);
     }
     return user;
+  }
+
+  @Get(':id/notifications')
+  @ApiOkResponse({ type: UserEntity })
+  findNotifications(@Param('id') id: string) {
+    return this.usersService.findNotifications(id);
+  }
+
+  @Get(':id/files')
+  @ApiOkResponse({ type: UserEntity })
+  findFiles(@Param('id') id: string) {
+    return this.usersService.findFiles(id);
   }
 
   @Patch(':id')
