@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 
 @Injectable()
 export class ShiftsService {
@@ -13,9 +14,44 @@ export class ShiftsService {
     return this.prisma.shift.create({ data: createShiftDto });
   }
 
-  findAll() {
-    //return `This action returns all shifts`;
-    return this.prisma.shift.findMany();
+  async findAll(paginationDto: PaginationDto, search?: string) {
+     const { page = 1 , limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    const query = search;
+
+    const where: any = {};
+
+    if (query) {
+      where.OR = [
+        { title: { contains: query, mode: 'insensitive' } },
+        { description: { contains: query, mode: 'insensitive' } },
+        //{ startTime: { contains: query, mode: 'insensitive' } },
+        //{ endTime: { contains: query, mode: 'insensitive' } },
+        //{ payRate: { contains: query, mode: 'insensitive' } },
+        //{ status: { contains: query, mode: 'insensitive' } },
+      ];
+    }
+
+    const [shifts, total] = await Promise.all([this.prisma.shift.findMany({
+      where,
+      skip,
+      take: limit,
+    }),
+    this.prisma.shift.count(),
+    ]);
+
+    const response = {
+      data: shifts,
+      meta: {
+        totalItems: total,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+      }
+    };
+
+    return response;
   }
 
   findOne(id: string) {

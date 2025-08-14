@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { ShiftsService } from './shifts.service';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
-import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiTags, ApiQuery } from '@nestjs/swagger';
 import { ShiftEntity } from './entities/shift.entity';
+import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 
 @Controller('shifts')
 @ApiTags('Shifts')
@@ -17,9 +18,13 @@ export class ShiftsController {
   }
 
   @Get()
+  @ApiQuery({ name: 'search', required: false, type: String })
   @ApiOkResponse({ type: ShiftEntity, isArray: true })
-  findAll() {
-    return this.shiftsService.findAll();
+  findAll(
+    @Query() paginationDto: PaginationDto, 
+    @Query('search') search?: string,
+  ) {
+    return this.shiftsService.findAll(paginationDto, search);
   }
 
   @Get(':id')
