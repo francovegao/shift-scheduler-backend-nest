@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { LocationsService } from './locations.service';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
-import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { LocationEntity } from './entities/location.entity';
+import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 
 @Controller('locations')
 @ApiTags('Locations')
@@ -17,9 +18,15 @@ export class LocationsController {
   }
 
   @Get()
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'companyId', required: false, type: String })
   @ApiOkResponse({ type: LocationEntity, isArray: true })
-  findAll() {
-    return this.locationsService.findAll();
+  findAll(
+      @Query() paginationDto: PaginationDto, 
+      @Query('search') search?: string,
+      @Query('companyId') companyId?: string,
+  ) {
+    return this.locationsService.findAll(paginationDto, search, companyId);
   }
 
   @Get(':id')

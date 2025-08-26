@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, NotFoundException, Query } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { UserEntity } from './entities/user.entity';
+import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 
 @Controller('users')
 @ApiTags('Users')
@@ -17,9 +18,27 @@ export class UsersController {
   }
 
   @Get()
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'locationId', required: false, type: String })
+  @ApiQuery({ name: 'companyId', required: false, type: String })
   @ApiOkResponse({ type: UserEntity, isArray: true })
-  findAll() {
-    return this.usersService.findAll();
+  findAll(
+    @Query() paginationDto: PaginationDto, 
+    @Query('search') search?: string,
+    @Query('locationId') locationId?: string,
+    @Query('companyId') companyId?: string,
+  ) {
+    return this.usersService.findAll(paginationDto, search, locationId, companyId);
+  }
+
+  @Get('/pharmacists')
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiOkResponse({ type: UserEntity, isArray: true })
+  findPharmacists(
+    @Query() paginationDto: PaginationDto, 
+    @Query('search') search?: string,
+  ) {
+    return this.usersService.findPharmacists(paginationDto, search);
   }
 
   @Get(':id')

@@ -39,7 +39,7 @@ export class CompaniesService {
       skip,
       take: limit,
     }),
-    this.prisma.company.count(),
+    this.prisma.company.count({where}),
     ]);
 
     const response = {

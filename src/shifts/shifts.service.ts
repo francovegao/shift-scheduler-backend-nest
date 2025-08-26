@@ -3,6 +3,7 @@ import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
+import { equal } from 'assert';
 
 @Injectable()
 export class ShiftsService {
@@ -14,13 +15,32 @@ export class ShiftsService {
     return this.prisma.shift.create({ data: createShiftDto });
   }
 
-  async findAll(paginationDto: PaginationDto, search?: string) {
+  async findAll(
+    paginationDto: PaginationDto, 
+    search?: string, 
+    locationId?: string, 
+    companyId?: string,
+    pharmacistId?: string
+  ) {
      const { page = 1 , limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
     const query = search;
+    const location = locationId;
+    const company = companyId;
+    const pharmacist = pharmacistId;
 
     const where: any = {};
+
+    const include: any = {
+      company: true,
+      location: true,
+      pharmacist: {
+        include: {
+          user: true,
+        },
+      },
+    }
 
     if (query) {
       where.OR = [
@@ -33,12 +53,21 @@ export class ShiftsService {
       ];
     }
 
+    if(location || company || pharmacist ){
+      where.OR= [
+        { locationId: location},
+        { companyId: company },
+        { pharmacistId: pharmacist },
+      ];
+    }
+
     const [shifts, total] = await Promise.all([this.prisma.shift.findMany({
       where,
+      include,
       skip,
       take: limit,
     }),
-    this.prisma.shift.count(),
+    this.prisma.shift.count({where}),
     ]);
 
     const response = {

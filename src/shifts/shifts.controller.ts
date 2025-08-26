@@ -19,12 +19,18 @@ export class ShiftsController {
 
   @Get()
   @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'locationId', required: false, type: String })
+  @ApiQuery({ name: 'companyId', required: false, type: String })
+  @ApiQuery({ name: 'pharmacistId', required: false, type: String })
   @ApiOkResponse({ type: ShiftEntity, isArray: true })
   findAll(
     @Query() paginationDto: PaginationDto, 
     @Query('search') search?: string,
+    @Query('locationId') locationId?: string,
+    @Query('companyId') companyId?: string,
+    @Query('pharmacistId') pharmacistId?: string,
   ) {
-    return this.shiftsService.findAll(paginationDto, search);
+    return this.shiftsService.findAll(paginationDto, search, locationId, companyId, pharmacistId);
   }
 
   @Get(':id')

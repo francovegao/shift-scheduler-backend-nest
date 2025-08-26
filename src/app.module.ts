@@ -7,10 +7,9 @@ import { CompaniesModule } from './companies/companies.module';
 import { ShiftsModule } from './shifts/shifts.module';
 import { LocationsModule } from './locations/locations.module';
 import { PharmacistProfilesModule } from './pharmacist-profiles/pharmacist-profiles.module';
-import { ShiftAssignmentsModule } from './shift-assignments/shift-assignments.module';
 
 @Module({
-  imports: [PrismaModule, UsersModule, CompaniesModule, ShiftsModule, LocationsModule, PharmacistProfilesModule, ShiftAssignmentsModule],
+  imports: [PrismaModule, UsersModule, CompaniesModule, ShiftsModule, LocationsModule, PharmacistProfilesModule],
   controllers: [AppController],
   providers: [AppService],
 })

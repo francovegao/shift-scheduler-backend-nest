@@ -44,4 +44,9 @@ export class CreateShiftDto {
   @ApiProperty()
   status: ShiftStatus;
 
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  pharmacistId?: string;
+
 }

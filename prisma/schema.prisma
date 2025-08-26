@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/prisma"
@@ -25,7 +19,6 @@ model User {
 
   roles             UserRole[]
   pharmacistProfile PharmacistProfile?
-  shiftAssignments  ShiftAssignment[]
   notifications     Notification[]
   files             File[]
 }
@@ -43,26 +36,35 @@ model Company {
   createdBy  String
   createdAt  DateTime @default(now())
 
-  users     UserRole[]
+  managers  UserRole[]
   locations Location[]
   shifts    Shift[]
+
+  @@index([createdBy])
 }
 
 model UserRole {
-  id        String   @id @default(uuid())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String    @id @default(uuid())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
   role      Role
-  company   Company? @relation(fields: [companyId], references: [id])
+  company   Company?  @relation(fields: [companyId], references: [id])
   companyId String?
+  location  Location? @relation(fields: [locationId], references: [id])
+  locationId String?
 
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([locationId])
 }
 
 enum Role {
   admin
   pharmacy_manager
   relief_pharmacist
+  location_manager
 }
 
 model PharmacistProfile {
@@ -79,6 +81,8 @@ model PharmacistProfile {
   experienceYears Int?
   approved        Boolean
   createdAt       DateTime @default(now())
+
+  shifts          Shift[]
 }
 
 model Location {
@@ -93,24 +97,32 @@ model Location {
   company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   companyId  String
 
-  shifts Shift[]
+  shifts     Shift[]
+  managers   UserRole[]
+
+  @@index([companyId])
 }
 
 model Shift {
-  id          String      @id @default(uuid())
-  company     Company     @relation(fields: [companyId], references: [id])
-  companyId   String
-  location    Location?   @relation(fields: [locationId], references: [id])
-  locationId  String?
-  title       String
-  description String?
-  startTime   DateTime
-  endTime     DateTime
-  payRate     Float
-  status      ShiftStatus @default(open)
-  createdAt   DateTime    @default(now())
+  id           String            @id @default(uuid())
+  company      Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId    String
+  location     Location?         @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  locationId   String?
+  title        String
+  description  String?
+  startTime    DateTime
+  endTime      DateTime
+  payRate      Float
+  status       ShiftStatus       @default(open)
+  createdAt    DateTime          @default(now())
+  pharmacist   PharmacistProfile? @relation(fields: [pharmacistId], references: [id], onDelete: SetNull)
+  pharmacistId String?
 
-  assignments ShiftAssignment[]
+  @@index([companyId])
+  @@index([locationId])
+  @@index([pharmacistId])
+  @@unique([locationId, startTime]) // prevent double-booking in same location
 }
 
 enum ShiftStatus {
@@ -120,19 +132,9 @@ enum ShiftStatus {
   completed
 }
 
-model ShiftAssignment {
-  id           String   @id @default(uuid())
-  shift        Shift    @relation(fields: [shiftId], references: [id])
-  shiftId      String
-  pharmacist   User     @relation(fields: [pharmacistId], references: [id])
-  pharmacistId String
-  assignedAt   DateTime @default(now())
-  confirmed    Boolean  @default(false)
-}
-
 model Notification {
   id        String           @id @default(uuid())
-  user      User             @relation(fields: [userId], references: [id])
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
   title     String
   message   String
@@ -140,6 +142,8 @@ model Notification {
   actionUrl String?
   seen      Boolean          @default(false)
   createdAt DateTime         @default(now())
+
+  @@index([userId])
 }
 
 enum NotificationType {
@@ -156,4 +160,7 @@ model File {
   fileName   String
   fileUrl    String
   uploadedAt DateTime @default(now())
+
+  @@index([userId])
 }
+
