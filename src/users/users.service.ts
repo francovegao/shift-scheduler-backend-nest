@@ -146,6 +146,17 @@ export class UsersService {
      });
   }
 
+  findOneUid(uid: string) {
+    return this.prisma.user.findUnique({ 
+      where: { 
+        firebaseUid: uid,
+      },
+      include: {
+        roles: true,
+      },
+     });
+  }
+
   findNotifications(id: string) {
     return this.prisma.user.findUnique({ 
       where: { id },
