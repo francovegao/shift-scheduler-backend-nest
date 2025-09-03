@@ -16,6 +16,7 @@ async function bootstrap() {
     .setTitle('Scheduler API')
     .setDescription('Relief Pharmacist scheduler API description')
     .setVersion('0.1')
+    .addBearerAuth()
     .build();
   
   const document = SwaggerModule.createDocument(app, config);

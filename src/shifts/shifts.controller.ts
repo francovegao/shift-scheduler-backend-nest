@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
 import { ShiftsService } from './shifts.service';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
-import { ApiCreatedResponse, ApiOkResponse, ApiTags, ApiQuery } from '@nestjs/swagger';
+import { ApiCreatedResponse, ApiOkResponse, ApiTags, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { ShiftEntity } from './entities/shift.entity';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
+import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 
 @Controller('shifts')
 @ApiTags('Shifts')
@@ -17,7 +18,10 @@ export class ShiftsController {
     return this.shiftsService.create(createShiftDto);
   }
 
+ 
   @Get()
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'locationId', required: false, type: String })
   @ApiQuery({ name: 'companyId', required: false, type: String })
