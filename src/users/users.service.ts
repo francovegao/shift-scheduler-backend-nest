@@ -157,6 +157,22 @@ export class UsersService {
      });
   }
 
+  async findMyRole(uid: string) {
+
+    const user = await this.prisma.user.findUnique({ 
+      where: { 
+        firebaseUid: uid,
+      },
+      include: {
+        roles: true,
+      },
+     });
+
+     return {
+      role: user?.roles[0].role,
+     }
+  }
+
   findNotifications(id: string) {
     return this.prisma.user.findUnique({ 
       where: { id },

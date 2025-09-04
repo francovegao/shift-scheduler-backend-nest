@@ -63,6 +63,16 @@ export class UsersController {
     return user;
   }
 
+  @Get('/me/:uid')
+  @ApiOkResponse({ type: UserEntity })
+  async findMyRole(@Param('uid') uid: string) {
+    const user = await this.usersService.findMyRole(uid);
+    if (!user) {
+      throw new NotFoundException(`User ${uid} does not exist.`);
+    }
+    return user;
+  }
+
   @Get(':id/notifications')
   @ApiOkResponse({ type: UserEntity })
   findNotifications(@Param('id') id: string) {
