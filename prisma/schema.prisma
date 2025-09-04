@@ -17,10 +17,18 @@ model User {
   phone       String?
   createdAt   DateTime @default(now())
 
-  roles             UserRole[]
+  role        Role
+  company     Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  companyId   String?
+  location    Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  locationId  String?
+
   pharmacistProfile PharmacistProfile?
   notifications     Notification[]
   files             File[]
+
+  @@index([companyId])
+  @@index([locationId])
 }
 
 model Company {
@@ -36,28 +44,11 @@ model Company {
   createdBy  String
   createdAt  DateTime @default(now())
 
-  managers  UserRole[]
+  managers  User[]
   locations Location[]
   shifts    Shift[]
 
   @@index([createdBy])
-}
-
-model UserRole {
-  id        String    @id @default(uuid())
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-  role      Role
-  company   Company?  @relation(fields: [companyId], references: [id])
-  companyId String?
-  location  Location? @relation(fields: [locationId], references: [id])
-  locationId String?
-
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([companyId])
-  @@index([locationId])
 }
 
 enum Role {
@@ -96,9 +87,9 @@ model Location {
   postalCode String?
   company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   companyId  String
-
+  
   shifts     Shift[]
-  managers   UserRole[]
+  managers   User[]
 
   @@index([companyId])
 }
@@ -122,7 +113,6 @@ model Shift {
   @@index([companyId])
   @@index([locationId])
   @@index([pharmacistId])
-  @@unique([locationId, startTime]) // prevent double-booking in same location
 }
 
 enum ShiftStatus {

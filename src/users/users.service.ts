@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Role } from 'generated/prisma';
+import { Prisma, Role } from 'generated/prisma';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { ARRAY_CONTAINS } from 'class-validator';
 
@@ -31,8 +31,6 @@ export class UsersService {
 
     const where: any = {};
 
-    const include: any = {roles: true,} 
-
     if (query) {
       where.OR = [
         { email: { contains: query, mode: 'insensitive' } },
@@ -44,29 +42,24 @@ export class UsersService {
 
     if(company){
         where.OR= [
-          { roles: {
-            some: {
+          { some: {
               companyId: company,
-              },
-            },
+              }, 
           },
         ];
       }
 
     if(location){
       where.OR= [
-        { roles: {
-          some: {
+        {  some: {
             locationId: location,
             },
-          },
         },
       ];
     }
 
     const [users, total] = await Promise.all([this.prisma.user.findMany({
       where,
-      include,
       skip,
       take: limit,
     }),
@@ -93,15 +86,10 @@ export class UsersService {
     const query = search;
 
     const where: any = {
-      roles: {
-        some:{
-          role: 'relief_pharmacist'
-        },
-      },
+      role: 'relief_pharmacist'
     };
 
     const include: any = {
-      roles: true,
       pharmacistProfile: true,
     } 
 
@@ -140,9 +128,6 @@ export class UsersService {
     //return `This action returns a #${id} user`;
     return this.prisma.user.findUnique({ 
       where: { id },
-      include: {
-        roles: true,
-      },
      });
   }
 
@@ -150,9 +135,6 @@ export class UsersService {
     return this.prisma.user.findUnique({ 
       where: { 
         firebaseUid: uid,
-      },
-      include: {
-        roles: true,
       },
      });
   }
@@ -163,13 +145,10 @@ export class UsersService {
       where: { 
         firebaseUid: uid,
       },
-      include: {
-        roles: true,
-      },
-     });
+     }); 
 
      return {
-      role: user?.roles[0].role,
+      role: user?.role,
      }
   }
 

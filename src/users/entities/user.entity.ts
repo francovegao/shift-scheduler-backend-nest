@@ -1,4 +1,4 @@
-import { User } from "generated/prisma";
+import { Role, User } from "generated/prisma";
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UserEntity implements User {
@@ -22,4 +22,13 @@ export class UserEntity implements User {
 
   @ApiProperty()
   createdAt: Date;
+
+  @ApiProperty()
+  role: Role;
+
+  @ApiProperty({ required: false, nullable: true })
+  companyId: string | null;
+
+  @ApiProperty({ required: false, nullable: true })
+  locationId: string | null;
 }

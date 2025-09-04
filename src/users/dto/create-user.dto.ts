@@ -2,12 +2,14 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { Role } from 'generated/prisma';
 
 export class CreateUserDto {
   @IsString()
@@ -38,4 +40,20 @@ export class CreateUserDto {
   @IsOptional()
   @ApiProperty({ required: false })
   phone?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @IsEnum(Role)
+  @ApiProperty()
+  role: Role;
+
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  companyId?: string;
+
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  locationId?: string;
 }
