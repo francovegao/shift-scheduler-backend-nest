@@ -31,6 +31,11 @@ export class UsersService {
 
     const where: any = {};
 
+    const include: any = {
+        company: true,
+        location: true,
+    }
+
     if (query) {
       where.OR = [
         { email: { contains: query, mode: 'insensitive' } },
@@ -60,6 +65,7 @@ export class UsersService {
 
     const [users, total] = await Promise.all([this.prisma.user.findMany({
       where,
+      include,
       skip,
       take: limit,
     }),
