@@ -14,6 +14,8 @@ export class LocationsController {
   constructor(private readonly locationsService: LocationsService) {}
 
   @Post()
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
   @ApiCreatedResponse({ type: LocationEntity })
   create(@Body() createLocationDto: CreateLocationDto) {
     return this.locationsService.create(createLocationDto);
@@ -35,18 +37,24 @@ export class LocationsController {
   }
 
   @Get(':id')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
   @ApiOkResponse({ type: LocationEntity })
   findOne(@Param('id') id: string) {
     return this.locationsService.findOne(id);
   }
 
   @Patch(':id')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
   @ApiCreatedResponse({ type: LocationEntity })
   update(@Param('id') id: string, @Body() updateLocationDto: UpdateLocationDto) {
     return this.locationsService.update(id, updateLocationDto);
   }
 
   @Delete(':id')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
   @ApiOkResponse({ type: LocationEntity })
   remove(@Param('id') id: string) {
     return this.locationsService.remove(id);

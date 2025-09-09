@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -15,7 +15,8 @@ export class ShiftsService {
     return this.prisma.shift.create({ data: createShiftDto });
   }
 
-  async findAll(
+  /*async findAll(
+    currentUser: any,
     paginationDto: PaginationDto, 
     search?: string, 
     locationId?: string, 
@@ -59,6 +60,95 @@ export class ShiftsService {
         { companyId: company },
         { pharmacistId: pharmacist },
       ];
+    }
+
+    const [shifts, total] = await Promise.all([this.prisma.shift.findMany({
+      where,
+      include,
+      skip,
+      take: limit,
+    }),
+    this.prisma.shift.count({where}),
+    ]);
+
+    const response = {
+      data: shifts,
+      meta: {
+        totalItems: total,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+      }
+    };
+
+    return response;
+  }*/
+
+  async findAll(
+    currentUser: any,
+    paginationDto: PaginationDto, 
+    search?: string, 
+    locationId?: string, 
+    companyId?: string,
+    pharmacistId?: string
+  ) {
+     const { page = 1 , limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    // Build dynamic filters
+    const where: any = { AND: [] };
+
+    // Role-based scoping
+    if (currentUser.role === 'pharmacy_manager') {
+      where.AND.push({ companyId: currentUser.companyId });
+    }
+    if (currentUser.role === 'location_manager') {
+      if(currentUser.companyId){
+        where.AND.push({ companyId: currentUser.companyId });
+      }else{
+        throw new ForbiddenException('Location Manager not linked to any company (Add company ID) ');
+      }
+    }
+    if (currentUser.role === 'relief_pharmacist') {
+      where.AND.push({ status: 'open' });
+    }
+
+    // External filter
+    if (companyId) {
+    where.AND.push({ companyId });
+    }
+    if (locationId) {
+      where.AND.push({ locationId });
+    }
+    if (pharmacistId) {
+      where.AND.push({ pharmacistId });
+    }
+
+    const include: any = {
+      company: true,
+      location: true,
+      pharmacist: {
+        include: {
+          user: true,
+        },
+      },
+    }
+
+    //Search filter
+    if (search) {
+      where.AND.push({
+        OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+          // For dates, you'd use >= and <= instead of contains
+          // { startTime: { gte: new Date(search) } },
+          
+          //{ startTime: { contains: search, mode: 'insensitive' } },
+          //{ endTime: { contains: search, mode: 'insensitive' } },
+          //{ payRate: { contains: search, mode: 'insensitive' } },
+          //{ status: { contains: search, mode: 'insensitive' } },
+        ],
+      });
     }
 
     const [shifts, total] = await Promise.all([this.prisma.shift.findMany({

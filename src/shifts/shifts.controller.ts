@@ -6,6 +6,7 @@ import { ApiCreatedResponse, ApiOkResponse, ApiTags, ApiQuery, ApiBearerAuth } f
 import { ShiftEntity } from './entities/shift.entity';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
+import { CurrentUser } from 'src/auth/current-user.decorator';
 
 @Controller('shifts')
 @ApiTags('Shifts')
@@ -30,13 +31,14 @@ export class ShiftsController {
   @ApiQuery({ name: 'pharmacistId', required: false, type: String })
   @ApiOkResponse({ type: ShiftEntity, isArray: true })
   findAll(
+    @CurrentUser() currentUser,
     @Query() paginationDto: PaginationDto, 
     @Query('search') search?: string,
     @Query('locationId') locationId?: string,
     @Query('companyId') companyId?: string,
     @Query('pharmacistId') pharmacistId?: string,
   ) {
-    return this.shiftsService.findAll(paginationDto, search, locationId, companyId, pharmacistId);
+    return this.shiftsService.findAll(currentUser, paginationDto, search, locationId, companyId, pharmacistId);
   }
 
   @Get(':id')
