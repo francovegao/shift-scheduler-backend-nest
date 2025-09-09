@@ -1,10 +1,12 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
 import { LocationsService } from './locations.service';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
-import { ApiCreatedResponse, ApiOkResponse, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { LocationEntity } from './entities/location.entity';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
+import { CurrentUser } from 'src/auth/current-user.decorator';
+import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 
 @Controller('locations')
 @ApiTags('Locations')
@@ -18,15 +20,18 @@ export class LocationsController {
   }
 
   @Get()
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'companyId', required: false, type: String })
   @ApiOkResponse({ type: LocationEntity, isArray: true })
   findAll(
+      @CurrentUser() currentUser,
       @Query() paginationDto: PaginationDto, 
       @Query('search') search?: string,
       @Query('companyId') companyId?: string,
   ) {
-    return this.locationsService.findAll(paginationDto, search, companyId);
+    return this.locationsService.findAll(currentUser, paginationDto, search, companyId);
   }
 
   @Get(':id')

@@ -14,7 +14,8 @@ export class LocationsService {
     return this.prisma.location.create({ data: createLocationDto });
   }
 
-  async findAll(
+  /*async findAll(
+    currentUser: any,
     paginationDto: PaginationDto, 
     search?: string, 
     companyId?: string
@@ -28,6 +29,11 @@ export class LocationsService {
       const where: any = {};
 
       const include: any = {company: true,}
+
+      console.log(currentUser)
+      if (currentUser.role === 'pharmacy_manager') {
+        where.AND=[ { companyId: currentUser.companyId },];
+       }
   
       if (query) {
         where.OR = [
@@ -67,7 +73,65 @@ export class LocationsService {
       };
   
       return response;
+  }*/
+
+  async findAll(
+  currentUser: any,
+  paginationDto: PaginationDto, 
+  search?: string, 
+  companyId?: string,
+) {
+  const { page = 1, limit = 10 } = paginationDto;
+  const skip = (page - 1) * limit;
+
+  // Build dynamic filters
+  const where: any = { AND: [] };
+
+  // Role-based scoping
+  if (currentUser.role === 'pharmacy_manager') {
+    where.AND.push({ companyId: currentUser.companyId });
   }
+
+  // External filter by companyId (only if provided by admin request)
+  if (companyId) {
+    where.AND.push({ companyId });
+  }
+
+  //Search filter
+  if (search) {
+    where.AND.push({
+      OR: [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } },
+        { address: { contains: search, mode: 'insensitive' } },
+        { city: { contains: search, mode: 'insensitive' } },
+        { province: { contains: search, mode: 'insensitive' } },
+        { postalCode: { contains: search, mode: 'insensitive' } },
+      ],
+    });
+  }
+
+  const [locations, total] = await Promise.all([
+    this.prisma.location.findMany({
+      where,
+      include: { company: true },
+      skip,
+      take: limit,
+    }),
+    this.prisma.location.count({ where }),
+  ]);
+
+  return {
+    data: locations,
+    meta: {
+      totalItems: total,
+      currentPage: page,
+      itemsPerPage: limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+}  
 
   findOne(id: string) {
     //return `This action returns a #${id} location`;

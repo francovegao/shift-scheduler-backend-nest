@@ -5,10 +5,14 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class FirebaseAuthGuard implements CanActivate {
-  constructor(private firebaseService: FirebaseService) {}
+  constructor(
+    private firebaseService: FirebaseService,
+    private usersService: UsersService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest();
@@ -26,7 +30,19 @@ export class FirebaseAuthGuard implements CanActivate {
 
     try {
       const decodedToken = await this.firebaseService.verifyToken(token);
-      req.user = decodedToken; // attach decoded user info to request
+      //req.user = decodedToken; // attach decoded user info to request
+
+      // get user from DB (with role and scope info)
+      const user = await this.usersService.findOneUid(decodedToken.uid);
+      if (!user) throw new UnauthorizedException('User not found');
+
+      // attach enriched user to request
+      req.user = {
+        id: user.id,
+        role: user.role,
+        companyId: user.companyId,
+      };
+
       return true;
     } catch (error) {
         if (error.code === 'auth/id-token-expired') {
