@@ -13,6 +13,8 @@ export class ShiftsController {
   constructor(private readonly shiftsService: ShiftsService) {}
 
   @Post()
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
   @ApiCreatedResponse({ type: ShiftEntity })
   create(@Body() createShiftDto: CreateShiftDto) {
     return this.shiftsService.create(createShiftDto);
@@ -38,18 +40,24 @@ export class ShiftsController {
   }
 
   @Get(':id')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
   @ApiOkResponse({ type: ShiftEntity })
   findOne(@Param('id') id: string) {
     return this.shiftsService.findOne(id);
   }
 
   @Patch(':id')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
   @ApiCreatedResponse({ type: ShiftEntity })
   update(@Param('id') id: string, @Body() updateShiftDto: UpdateShiftDto) {
     return this.shiftsService.update(id, updateShiftDto);
   }
 
   @Delete(':id')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
   @ApiOkResponse({ type: ShiftEntity })
   remove(@Param('id') id: string) {
     return this.shiftsService.remove(id);
