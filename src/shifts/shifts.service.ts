@@ -136,15 +136,18 @@ export class ShiftsService {
 
     //Search filter
     if (search) {
+      const startDate = new Date(search);
+      const endDate = new Date(search);
+
       where.AND.push({
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
-          // For dates, you'd use >= and <= instead of contains
-          // { startTime: { gte: new Date(search) } },
-          
-          //{ startTime: { contains: search, mode: 'insensitive' } },
-          //{ endTime: { contains: search, mode: 'insensitive' } },
+          { startTime: { 
+            gte: new Date(startDate.setHours(0,0,0,0)),
+            lte: new Date(endDate.setHours(23,59,59,999)),
+           } },
+           
           //{ payRate: { contains: search, mode: 'insensitive' } },
           //{ status: { contains: search, mode: 'insensitive' } },
         ],
@@ -208,13 +211,64 @@ export class ShiftsService {
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
-          // For dates, you'd use >= and <= instead of contains
-          // { startTime: { gte: new Date(search) } },
-          
-          //{ startTime: { contains: search, mode: 'insensitive' } },
-          //{ endTime: { contains: search, mode: 'insensitive' } },
-          //{ payRate: { contains: search, mode: 'insensitive' } },
-          //{ status: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    const [shifts, total] = await Promise.all([this.prisma.shift.findMany({
+      where,
+      include,
+      skip,
+      take: limit,
+    }),
+    this.prisma.shift.count({where}),
+    ]);
+
+    const response = {
+      data: shifts,
+      meta: {
+        totalItems: total,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+      }
+    };
+
+    return response;
+  }
+
+async findShiftsByDate(
+    currentUser: any,
+    paginationDto: PaginationDto, 
+    date?: string
+  ) {
+    const { page = 1 , limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    // Build dynamic filters
+    const where: any = { AND: [] };
+
+    const include: any = {
+      company: true,
+      location: true,
+      pharmacist: {
+        include: {
+          user: true,
+        },
+      },
+    }
+
+    //Search filter
+    if (date) {
+      const startDate = new Date(date);
+      const endDate = new Date(date);
+
+      where.AND.push({
+        OR: [
+          { startTime: { 
+            gte: new Date(startDate.setHours(0,0,0,0)),
+            lte: new Date(endDate.setHours(23,59,59,999)),
+           } },
         ],
       });
     }
