@@ -41,6 +41,19 @@ export class ShiftsController {
     return this.shiftsService.findAll(currentUser, paginationDto, search, locationId, companyId, pharmacistId);
   }
 
+  @Get('/myshifts')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
+  @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiOkResponse({ type: ShiftEntity })
+  findPharmacistShifts(
+    @CurrentUser() currentUser,
+    @Query() paginationDto: PaginationDto, 
+    @Query('search') search?: string,
+  ) {
+    return this.shiftsService.findPharmacistShifts(currentUser, paginationDto, search,);
+  }
+
   @Get(':id')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()

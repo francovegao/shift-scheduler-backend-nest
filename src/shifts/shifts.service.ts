@@ -92,7 +92,7 @@ export class ShiftsService {
     companyId?: string,
     pharmacistId?: string
   ) {
-     const { page = 1 , limit = 10 } = paginationDto;
+    const { page = 1 , limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
     // Build dynamic filters
@@ -122,6 +122,74 @@ export class ShiftsService {
     }
     if (pharmacistId) {
       where.AND.push({ pharmacistId });
+    }
+
+    const include: any = {
+      company: true,
+      location: true,
+      pharmacist: {
+        include: {
+          user: true,
+        },
+      },
+    }
+
+    //Search filter
+    if (search) {
+      where.AND.push({
+        OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+          // For dates, you'd use >= and <= instead of contains
+          // { startTime: { gte: new Date(search) } },
+          
+          //{ startTime: { contains: search, mode: 'insensitive' } },
+          //{ endTime: { contains: search, mode: 'insensitive' } },
+          //{ payRate: { contains: search, mode: 'insensitive' } },
+          //{ status: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    const [shifts, total] = await Promise.all([this.prisma.shift.findMany({
+      where,
+      include,
+      skip,
+      take: limit,
+    }),
+    this.prisma.shift.count({where}),
+    ]);
+
+    const response = {
+      data: shifts,
+      meta: {
+        totalItems: total,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+      }
+    };
+
+    return response;
+  }
+
+  async findPharmacistShifts(
+    currentUser: any,
+    paginationDto: PaginationDto, 
+    search?: string, 
+  ) {
+    const { page = 1 , limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    // Build dynamic filters
+    const where: any = { AND: [] };
+
+    if (currentUser.role === 'relief_pharmacist') {
+      where.AND.push({ 
+        pharmacist: {
+          userId: currentUser.id,
+        } 
+      });
     }
 
     const include: any = {
