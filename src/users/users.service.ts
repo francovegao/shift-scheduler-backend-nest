@@ -158,13 +158,25 @@ export class UsersService {
      }
   }
 
-  findNotifications(id: string) {
-    return this.prisma.user.findUnique({ 
+  async findNotifications(id: string) {
+    const user = await this.prisma.user.findUnique({ 
       where: { id },
       include: {
-        notifications: true,
+        notifications: {
+          where: {
+            seen: false,
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 10,
+        }
       },
      });
+
+     return {
+      data: user?.notifications
+     }
   }
 
   findFiles(id: string) {

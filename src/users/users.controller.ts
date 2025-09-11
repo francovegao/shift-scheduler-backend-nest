@@ -73,7 +73,7 @@ export class UsersController {
     return user;
   }
 
-  @Get(':id/notifications')
+  @Get('/notifications/:id')
   @ApiOkResponse({ type: UserEntity })
   findNotifications(@Param('id') id: string) {
     return this.usersService.findNotifications(id);
