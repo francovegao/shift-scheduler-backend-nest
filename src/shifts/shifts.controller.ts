@@ -67,6 +67,17 @@ export class ShiftsController {
     return this.shiftsService.findShiftsByDate(currentUser, paginationDto, date);
   }
 
+  @Get('/latest')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: ShiftEntity, isArray: true })
+  findLatestShifts(
+    @CurrentUser() currentUser,
+    @Query() paginationDto: PaginationDto,
+  ) {
+    return this.shiftsService.findLatestShifts(currentUser, paginationDto);
+  }
+
   @Get(':id')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()

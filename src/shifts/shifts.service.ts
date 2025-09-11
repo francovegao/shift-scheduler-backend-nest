@@ -295,6 +295,51 @@ async findShiftsByDate(
     return response;
   }
 
+  async findLatestShifts(
+    currentUser: any,
+    paginationDto: PaginationDto, 
+  ) {
+    const { page = 1 , limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    // Build dynamic filters
+    const where: any = { AND: [] };
+
+    const include: any = {
+      company: true,
+      location: true,
+      pharmacist: {
+        include: {
+          user: true,
+        },
+      },
+    }
+
+    const [shifts, total] = await Promise.all([this.prisma.shift.findMany({
+      where,
+      include,
+      skip,
+      take: limit,
+      orderBy: {
+          createdAt: 'desc',
+        },
+    }),
+    this.prisma.shift.count({where}),
+    ]);
+
+    const response = {
+      data: shifts,
+      meta: {
+        totalItems: total,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+      }
+    };
+
+    return response;
+  }
+
   findOne(id: string) {
     //return `This action returns a #${id} shift`;
     return this.prisma.shift.findUnique({ where: { id } });
