@@ -237,6 +237,56 @@ export class ShiftsService {
     return response;
   }
 
+  async findAllUserShifts(
+    currentUser: any,
+    paginationDto: PaginationDto, 
+  ) {
+    const { page = 1 , limit = 1000 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    // Build dynamic filters
+    const where: any = { AND: [] };
+
+    if (currentUser.role === 'relief_pharmacist') {
+      where.AND.push({ 
+        pharmacist: {
+          userId: currentUser.id,
+        } 
+      });
+    }
+
+    const include: any = {
+      company: true,
+      location: true,
+      pharmacist: {
+        include: {
+          user: true,
+        },
+      },
+    }
+
+    const [shifts, total] = await Promise.all([this.prisma.shift.findMany({
+      where,
+      include,
+      skip,
+      take: limit,
+    }),
+    this.prisma.shift.count({where}),
+    ]);
+
+    const response = {
+      data: shifts,
+      meta: {
+        totalItems: total,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+      }
+    };
+
+    return response;
+  }
+
 async findShiftsByDate(
     currentUser: any,
     paginationDto: PaginationDto, 
