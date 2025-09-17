@@ -265,19 +265,28 @@ export class ShiftsService {
       },
     }
 
-    const [shifts, total] = await Promise.all([this.prisma.shift.findMany({
+    const [shifts, total, open, taken, completed, cancelled] = await this.prisma.$transaction([
+      this.prisma.shift.findMany({
       where,
       include,
       skip,
       take: limit,
     }),
     this.prisma.shift.count({where}),
+    this.prisma.shift.count({where:{status: 'open',}}),
+    this.prisma.shift.count({ where: { ...where, status: 'taken' } }),
+    this.prisma.shift.count({ where: { ...where, status: 'completed' } }),
+    this.prisma.shift.count({ where: { ...where, status: 'cancelled' } }),
     ]);
 
     const response = {
       data: shifts,
       meta: {
         totalItems: total,
+        totalOpen: open,
+        totalTaken: taken,
+        totalCompleted: completed,
+        totalCancelled: cancelled,
         currentPage: page,
         itemsPerPage: limit,
         totalPages: Math.ceil(total / limit),
@@ -297,6 +306,11 @@ async findShiftsByDate(
 
     // Build dynamic filters
     const where: any = { AND: [] };
+
+    // Role-based scoping
+    if (currentUser.role === 'relief_pharmacist') {
+      where.AND.push({ status: 'open' });
+    }
 
     const include: any = {
       company: true,
