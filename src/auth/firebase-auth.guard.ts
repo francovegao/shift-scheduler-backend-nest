@@ -41,6 +41,7 @@ export class FirebaseAuthGuard implements CanActivate {
         id: user.id,
         role: user.role,
         companyId: user.companyId,
+        locationId: user.locationId,
       };
 
       return true;

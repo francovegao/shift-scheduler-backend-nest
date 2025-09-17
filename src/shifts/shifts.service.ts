@@ -103,11 +103,7 @@ export class ShiftsService {
       where.AND.push({ companyId: currentUser.companyId });
     }
     if (currentUser.role === 'location_manager') {
-      if(currentUser.companyId){
-        where.AND.push({ companyId: currentUser.companyId });
-      }else{
-        throw new ForbiddenException('Location Manager not linked to any company (Add company ID) ');
-      }
+      where.AND.push({ locationId: currentUser.locationId });
     }
     if (currentUser.role === 'relief_pharmacist') {
       where.AND.push({ status: 'open' });
@@ -247,12 +243,35 @@ export class ShiftsService {
     // Build dynamic filters
     const where: any = { AND: [] };
 
+    //Role based filters
+    let openWhere: any = {};
+
+    if (currentUser.role === 'admin') {
+      openWhere = {  status: 'open' };
+    }
+
+    if (currentUser.role === 'pharmacy_manager') {
+      where.AND.push({ companyId: currentUser.companyId });
+
+      openWhere = { ...where, status: 'open' };
+    }
+
+    if (currentUser.role === 'location_manager') {
+      where.AND.push({ locationId: currentUser.locationId});
+
+      openWhere = { ...where, status: 'open' };
+    }
+
+
     if (currentUser.role === 'relief_pharmacist') {
       where.AND.push({ 
         pharmacist: {
           userId: currentUser.id,
         } 
       });
+
+      openWhere = {  status: 'open' };
+
     }
 
     const include: any = {
@@ -273,7 +292,7 @@ export class ShiftsService {
       take: limit,
     }),
     this.prisma.shift.count({where}),
-    this.prisma.shift.count({where:{status: 'open',}}),
+    this.prisma.shift.count({where: openWhere}),
     this.prisma.shift.count({ where: { ...where, status: 'taken' } }),
     this.prisma.shift.count({ where: { ...where, status: 'completed' } }),
     this.prisma.shift.count({ where: { ...where, status: 'cancelled' } }),
@@ -368,6 +387,23 @@ async findShiftsByDate(
 
     // Build dynamic filters
     const where: any = { AND: [] };
+
+    //Role based filtering
+    if (currentUser.role === 'pharmacy_manager') {
+      where.AND.push({ companyId: currentUser.companyId });
+    }
+
+    if (currentUser.role === 'location_manager') {
+      where.AND.push({ locationId: currentUser.locationId });
+    }
+
+    if (currentUser.role === 'relief_pharmacist') {
+      where.AND.push({ 
+        pharmacist: {
+          userId: currentUser.id,
+        } 
+      });
+    }
 
     const include: any = {
       company: true,
