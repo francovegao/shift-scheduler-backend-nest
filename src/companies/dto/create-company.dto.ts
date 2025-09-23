@@ -36,10 +36,5 @@ export class CreateCompanyDto {
   @IsString()
   @ApiProperty({ required: false })
   postalCode?: string;
-
-  @IsString()
-  @IsNotEmpty()
-  @ApiProperty()
-  createdBy: string;
 }
 

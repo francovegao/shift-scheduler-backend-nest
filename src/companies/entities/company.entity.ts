@@ -30,9 +30,6 @@ export class CompanyEntity implements Company {
   postalCode: string | null;
 
   @ApiProperty()
-  createdBy: string;
-
-  @ApiProperty()
   createdAt: Date;
 }
 

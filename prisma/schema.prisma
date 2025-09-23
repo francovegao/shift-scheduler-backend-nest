@@ -41,14 +41,12 @@ model Company {
   city       String?
   province   String?
   postalCode String?
-  createdBy  String
   createdAt  DateTime @default(now())
 
   managers  User[]
   locations Location[]
   shifts    Shift[]
 
-  @@index([createdBy])
 }
 
 enum Role {
