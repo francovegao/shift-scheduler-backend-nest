@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MinLength, IsEmail, IsBoolean, IsOptional, IsNumber } from 'class-validator';
+import { IsNotEmpty, IsString, MinLength, IsEmail, IsBoolean, IsOptional, IsNumber, ValidateIf } from 'class-validator';
 
 export class CreatePharmacistProfileDto {
 
@@ -34,8 +34,9 @@ export class CreatePharmacistProfileDto {
   @ApiProperty({ required: false })
   postalCode?: string;
 
-  @IsEmail()
   @IsOptional()
+  @ValidateIf(o => o.email !== '') // Apply IsEmail only if email is not an empty string
+  @IsEmail()
   @ApiProperty({ required: false })
   email?: string;
 
