@@ -40,6 +40,14 @@ export class CompaniesController {
     return this.companiesService.findOne(id);
   }
 
+  @Get('/shifts/:id')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: CompanyEntity })
+  findShifts(@Param('id') id: string) {
+    return this.companiesService.findShifts(id);
+  }
+
   @Patch(':id')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()

@@ -186,17 +186,19 @@ export class UsersService {
     }),
     ]);
 
+    const currentYear = new Date().getFullYear();
+    const startOfYear = `${currentYear}-01-01`;
+    const endOfYear = `${currentYear}-12-31`;
+
     const monthlyCounts = await this.prisma.$queryRaw`
       SELECT
         DATE_TRUNC('month', "startTime") AS month,
         COUNT(*)::INT AS count
       FROM "Shift"
-      WHERE "pharmacistId" = ${pharmacist.pharmacistProfile?.id}
+      WHERE "pharmacistId" = ${pharmacist.pharmacistProfile?.id} AND "startTime" >= ${startOfYear}::TIMESTAMP AND "startTime" <= ${endOfYear}::TIMESTAMP
       GROUP BY 1
       ORDER BY 1;
     `;
-
-    console.log(monthlyCounts)
 
     const response = {
       data: pharmacist,

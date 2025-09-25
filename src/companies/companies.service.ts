@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -55,9 +55,92 @@ export class CompaniesService {
     return response;
   }
 
-  findOne(id: string) {
-    //return `This action returns a #${id} company`;
-    return this.prisma.company.findUnique({ where: { id } });
+  async findOne(id: string) {
+
+    const company = await this.prisma.company.findUnique({ 
+      where: { id },
+      include: {
+        managers: true,
+        locations: true,
+        shifts: true,
+      }
+     });
+
+    if (!company) {
+        throw new NotFoundException(`Company with ID "${id}" not found.`);
+    }
+
+    const [openShifts, takenShifts, completedShifts, cancelledShifts] = await this.prisma.$transaction([
+      this.prisma.shift.count({
+          where: {
+          companyId: company.id,
+          status: 'open',
+        },
+      }),
+      this.prisma.shift.count({
+          where: {
+          companyId: company.id,
+          status: 'taken',
+        },
+      }),
+      this.prisma.shift.count({
+          where: {
+          companyId: company.id,
+          status: 'completed',
+        },
+      }),
+      this.prisma.shift.count({
+          where: {
+          companyId: company.id,
+          status: 'cancelled',
+        },
+      }),
+    ]);
+
+    const currentYear = new Date().getFullYear();
+    const startOfYear = `${currentYear}-01-01`;
+    const endOfYear = `${currentYear}-12-31`;
+
+    const monthlyCounts = await this.prisma.$queryRaw`
+      SELECT
+        DATE_TRUNC('month', "startTime") AS month,
+        COUNT(*)::INT AS count
+      FROM "Shift"
+      WHERE "companyId" = ${company.id} AND "startTime" >= ${startOfYear}::TIMESTAMP AND "startTime" <= ${endOfYear}::TIMESTAMP
+      GROUP BY 1
+      ORDER BY 1;
+    `;
+
+    const response = {
+      data: company,
+      meta: {
+        totalOpen: openShifts,
+        totalTaken: takenShifts,
+        totalCompleted: completedShifts,
+        totalCancelled: cancelledShifts,
+        monthlyCounts,
+      }
+    };
+
+    return response;
+  }
+
+  async findShifts(id: string) {
+    const company = await this.prisma.company.findUnique({ 
+      where: { id },
+      include: {
+        shifts: {
+          include: {
+            company: true,
+            location: true,
+          }
+        },
+      }
+     });
+
+     return {
+      data: company?.shifts
+     }
   }
 
   update(id: string, updateCompanyDto: UpdateCompanyDto) {
