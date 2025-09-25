@@ -186,6 +186,18 @@ export class UsersService {
     }),
     ]);
 
+    const monthlyCounts = await this.prisma.$queryRaw`
+      SELECT
+        DATE_TRUNC('month', "startTime") AS month,
+        COUNT(*)::INT AS count
+      FROM "Shift"
+      WHERE "pharmacistId" = ${pharmacist.pharmacistProfile?.id}
+      GROUP BY 1
+      ORDER BY 1;
+    `;
+
+    console.log(monthlyCounts)
+
     const response = {
       data: pharmacist,
       meta: {
@@ -193,6 +205,7 @@ export class UsersService {
         totalCompleted: completedShifts,
         totalCancelled: cancelledShifts,
         totalPharmacies: distinctPharmacies.length,
+        monthlyCounts,
       }
     };
    
@@ -217,6 +230,31 @@ export class UsersService {
 
      return {
       role: user?.role,
+     }
+  }
+
+  async findShifts(id: string) {
+    const user = await this.prisma.user.findUnique({ 
+      where: { 
+        id: id,
+        role: 'relief_pharmacist',
+       },
+      include: {
+        pharmacistProfile: {
+          include: {
+            shifts: {
+              include: {
+                company: true,
+                location: true,
+              }
+            },
+          },
+        },
+      },
+     });
+
+     return {
+      data: user?.pharmacistProfile?.shifts
      }
   }
 

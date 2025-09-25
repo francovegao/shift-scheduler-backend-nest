@@ -96,6 +96,14 @@ export class UsersController {
     return user;
   }
 
+  @Get('/shifts/:id')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: UserEntity })
+  findShifts(@Param('id') id: string) {
+    return this.usersService.findShifts(id);
+  }
+
   @Get('/notifications/:id')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
