@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -135,6 +135,68 @@ export class UsersService {
     return this.prisma.user.findUnique({ 
       where: { id },
      });
+  }
+
+  async findOnePharmacist(id: string) {
+
+    const pharmacist =  await this.prisma.user.findUnique({ 
+      where: { 
+        id: id,
+        role: 'relief_pharmacist',
+       },
+       include: {
+        files: true,
+        pharmacistProfile: {
+          include: {
+            shifts: true,
+          },
+        },
+      },
+     })
+
+    if (!pharmacist) {
+      throw new NotFoundException(`Pharmacist with ID "${id}" not found.`);
+    }
+
+    const distinctPharmacies = await this.prisma.shift.groupBy({
+      by: ['companyId'],
+      where: {
+        pharmacistId: pharmacist.pharmacistProfile?.id,
+      },
+    });
+
+    const [completedShifts, cancelledShifts, takenShifts] = await this.prisma.$transaction([
+    this.prisma.shift.count({
+        where: {
+        pharmacistId: pharmacist.pharmacistProfile?.id,
+        status: 'completed',
+      },
+    }),
+        this.prisma.shift.count({
+        where: {
+        pharmacistId: pharmacist.pharmacistProfile?.id,
+        status: 'cancelled',
+      },
+    }),
+        this.prisma.shift.count({
+        where: {
+        pharmacistId: pharmacist.pharmacistProfile?.id,
+        status: 'taken',
+      },
+    }),
+    ]);
+
+    const response = {
+      data: pharmacist,
+      meta: {
+        totalTaken: takenShifts,
+        totalCompleted: completedShifts,
+        totalCancelled: cancelledShifts,
+        totalPharmacies: distinctPharmacies.length,
+      }
+    };
+   
+    return response;
   }
 
   findOneUid(uid: string) {

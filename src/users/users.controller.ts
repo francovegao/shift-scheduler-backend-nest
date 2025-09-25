@@ -52,10 +52,20 @@ export class UsersController {
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
   @ApiOkResponse({ type: UserEntity })
-  //findOne(@Param('id') id: string) {
-    //return this.usersService.findOne(id);
   async findOne(@Param('id') id: string) {
     const user = await this.usersService.findOne(id);
+    if (!user) {
+      throw new NotFoundException(`User ${id} does not exist.`);
+    }
+    return user;
+  }
+
+  @Get('/pharmacist/:id')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: UserEntity })
+  async findOnePharmacist(@Param('id') id: string) {
+    const user = await this.usersService.findOnePharmacist(id);
     if (!user) {
       throw new NotFoundException(`User ${id} does not exist.`);
     }
