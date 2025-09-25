@@ -44,6 +44,14 @@ export class LocationsController {
     return this.locationsService.findOne(id);
   }
 
+  @Get('/shifts/:id')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: LocationEntity })
+  findShifts(@Param('id') id: string) {
+    return this.locationsService.findShifts(id);
+  }
+
   @Patch(':id')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
