@@ -74,24 +74,28 @@ export class CompaniesService {
       this.prisma.shift.count({
           where: {
           companyId: company.id,
+          locationId: null,
           status: 'open',
         },
       }),
       this.prisma.shift.count({
           where: {
           companyId: company.id,
+          locationId: null,
           status: 'taken',
         },
       }),
       this.prisma.shift.count({
           where: {
           companyId: company.id,
+          locationId: null,
           status: 'completed',
         },
       }),
       this.prisma.shift.count({
           where: {
           companyId: company.id,
+          locationId: null,
           status: 'cancelled',
         },
       }),
@@ -106,7 +110,7 @@ export class CompaniesService {
         DATE_TRUNC('month', "startTime") AS month,
         COUNT(*)::INT AS count
       FROM "Shift"
-      WHERE "companyId" = ${company.id} AND "startTime" >= ${startOfYear}::TIMESTAMP AND "startTime" <= ${endOfYear}::TIMESTAMP
+      WHERE "companyId" = ${company.id} AND "locationId" IS NULL AND "startTime" >= ${startOfYear}::TIMESTAMP AND "startTime" <= ${endOfYear}::TIMESTAMP
       GROUP BY 1
       ORDER BY 1;
     `;
