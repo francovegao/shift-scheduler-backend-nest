@@ -219,6 +219,13 @@ export class UsersService {
       where: { 
         firebaseUid: uid,
       },
+      include: {
+        pharmacistProfile: {
+          select: {
+            id: true,
+          }
+        },
+      }
      });
   }
 
