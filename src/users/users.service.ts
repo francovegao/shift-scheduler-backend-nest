@@ -1,19 +1,24 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Prisma, Role } from 'generated/prisma';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
-import { ARRAY_CONTAINS } from 'class-validator';
+import { FirebaseService } from 'src/firebase/firebase.service';
+import { CreateFirebaseUserDto } from './dto/create-firebase-user.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService){}
+  constructor(
+    private prisma: PrismaService,
+    private firebaseService: FirebaseService){}
 
   //CRUD operations
   create(createUserDto: CreateUserDto) {
-    //return 'This action adds a new user';
     return this.prisma.user.create({ data: createUserDto});
+  }
+
+  async createFirebaseUser(createFirebaseUserDto: CreateFirebaseUserDto){
+    return this.firebaseService.createFirebaseUser(createFirebaseUserDto.email, createFirebaseUserDto.password);
   }
 
   async findAll(
@@ -305,8 +310,24 @@ export class UsersService {
     });
   }
 
-  remove(id: string) {
-    //return `This action removes a #${id} user`;
-    return this.prisma.user.delete({ where: { id } });
+  async remove(id: string) {
+    // Find user first to grab their firebase UID
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      throw new InternalServerErrorException('User not found in DB');
+    }
+
+    // Delete from DB
+    await this.prisma.user.delete({ where: { id } });
+
+    // Delete from Firebase Auth
+    try {
+      await this.firebaseService.deleteFirebaseUser(user.firebaseUid);
+    } catch (error) {
+      console.error(`Failed to delete Firebase user: ${user.firebaseUid}`, error);
+    }
+
+    return { message: 'User deleted from DB and Firebase' };
   }
+  
 }
