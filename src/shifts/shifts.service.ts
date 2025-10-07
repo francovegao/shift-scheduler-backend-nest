@@ -4,6 +4,7 @@ import { UpdateShiftDto } from './dto/update-shift.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { equal } from 'assert';
+import { ShiftStatus } from 'generated/prisma';
 
 @Injectable()
 export class ShiftsService {
@@ -207,6 +208,8 @@ export class ShiftsService {
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
+          { company : { name: {contains: search, mode: 'insensitive' }}}, 
+          { location : { name: {contains: search, mode: 'insensitive' }}}, 
         ],
       });
     }
