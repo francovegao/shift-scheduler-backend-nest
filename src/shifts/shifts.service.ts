@@ -91,7 +91,11 @@ export class ShiftsService {
     search?: string, 
     locationId?: string, 
     companyId?: string,
-    pharmacistId?: string
+    pharmacistId?: string,
+    fromDate?: Date,
+    toDate?: Date,
+    minRate?: string,
+    maxRate?: string,
   ) {
     const { page = 1 , limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
@@ -148,6 +152,42 @@ export class ShiftsService {
           //{ payRate: { contains: search, mode: 'insensitive' } },
           //{ status: { contains: search, mode: 'insensitive' } },
         ],
+      });
+    }
+
+    //Pay Rate Filter
+    const min = minRate ? parseFloat(minRate) : undefined;
+    const max = maxRate ? parseFloat(maxRate) : undefined;
+
+    if (min !== undefined || max !== undefined) {
+      where.AND.push({
+        payRate: {
+          ...(min !== undefined && { gte: min }),
+          ...(max !== undefined && { lte: max }),
+        },
+      });
+    }
+
+    //Date Filter
+    let parsedStart: Date | undefined;
+    let parsedEnd: Date | undefined;
+
+    if (fromDate) {
+      parsedStart = new Date(fromDate);
+      if (isNaN(parsedStart.getTime())) throw new Error(`Invalid fromDate: ${fromDate}`);
+    }
+
+    if (toDate) {
+      parsedEnd = new Date(toDate);
+      if (isNaN(parsedEnd.getTime())) throw new Error(`Invalid toDate: ${toDate}`);
+    }
+
+     if (parsedStart || parsedEnd) {
+      where.AND.push({
+        startTime: {
+          ...(parsedStart && { gte: parsedStart }),
+          ...(parsedEnd && { lte: parsedEnd }),
+        },
       });
     }
 

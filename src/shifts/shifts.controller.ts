@@ -29,6 +29,10 @@ export class ShiftsController {
   @ApiQuery({ name: 'locationId', required: false, type: String })
   @ApiQuery({ name: 'companyId', required: false, type: String })
   @ApiQuery({ name: 'pharmacistId', required: false, type: String })
+  @ApiQuery({ name: 'from', required: false, type: String })
+  @ApiQuery({ name: 'to', required: false, type: String })
+  @ApiQuery({ name: 'minRate', required: false, type: String })
+  @ApiQuery({ name: 'maxRate', required: false, type: String })
   @ApiOkResponse({ type: ShiftEntity, isArray: true })
   findAll(
     @CurrentUser() currentUser,
@@ -37,8 +41,12 @@ export class ShiftsController {
     @Query('locationId') locationId?: string,
     @Query('companyId') companyId?: string,
     @Query('pharmacistId') pharmacistId?: string,
+    @Query('from') fromDate?: Date,
+    @Query('to') toDate?: Date,
+    @Query('minRate') minRate?: string,
+    @Query('maxRate') maxRate?: string,
   ) {
-    return this.shiftsService.findAll(currentUser, paginationDto, search, locationId, companyId, pharmacistId);
+    return this.shiftsService.findAll(currentUser, paginationDto, search, locationId, companyId, pharmacistId, fromDate, toDate, minRate, maxRate);
   }
 
   @Get('/myshifts')
