@@ -177,6 +177,9 @@ export class ShiftsService {
     currentUser: any,
     paginationDto: PaginationDto, 
     search?: string, 
+    selectedStatus?: string,
+    fromDate?: Date,
+    toDate?: Date,
   ) {
     const { page = 1 , limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
@@ -209,10 +212,39 @@ export class ShiftsService {
           { title: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
           { company : { name: {contains: search, mode: 'insensitive' }}}, 
-          { location : { name: {contains: search, mode: 'insensitive' }}}, 
+          { location : { name: {contains: search, mode: 'insensitive' }}},
         ],
       });
     }
+
+    //Status Filter
+    where.AND.push({
+      status: selectedStatus ? { equals: selectedStatus } : undefined,
+    });
+
+    //Date Filter
+    let parsedStart: Date | undefined;
+    let parsedEnd: Date | undefined;
+
+    if (fromDate) {
+      parsedStart = new Date(fromDate);
+      if (isNaN(parsedStart.getTime())) throw new Error(`Invalid fromDate: ${fromDate}`);
+    }
+
+    if (toDate) {
+      parsedEnd = new Date(toDate);
+      if (isNaN(parsedEnd.getTime())) throw new Error(`Invalid toDate: ${toDate}`);
+    }
+
+     if (parsedStart || parsedEnd) {
+      where.AND.push({
+        startTime: {
+          ...(parsedStart && { gte: parsedStart }),
+          ...(parsedEnd && { lte: parsedEnd }),
+        },
+      });
+    }
+    
 
     const [shifts, total] = await Promise.all([this.prisma.shift.findMany({
       where,
