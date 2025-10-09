@@ -96,6 +96,7 @@ export class ShiftsService {
     toDate?: Date,
     minRate?: string,
     maxRate?: string,
+    selectedStatus?: string,
   ) {
     const { page = 1 , limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
@@ -137,23 +138,32 @@ export class ShiftsService {
 
     //Search filter
     if (search) {
-      const startDate = new Date(search);
-      const endDate = new Date(search);
-
       where.AND.push({
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
-          { startTime: { 
-            gte: new Date(startDate.setHours(0,0,0,0)),
-            lte: new Date(endDate.setHours(23,59,59,999)),
-           } },
-           
-          //{ payRate: { contains: search, mode: 'insensitive' } },
-          //{ status: { contains: search, mode: 'insensitive' } },
+          { company : { name: {contains: search, mode: 'insensitive' }}}, 
+          { company : { email: {contains: search, mode: 'insensitive' }}}, 
+          { company : { phone: {contains: search, mode: 'insensitive' }}}, 
+          { company : { address: {contains: search, mode: 'insensitive' }}}, 
+          { company : { city: {contains: search, mode: 'insensitive' }}}, 
+          { location : { name: {contains: search, mode: 'insensitive' }}},
+          { location : { email: {contains: search, mode: 'insensitive' }}},
+          { location : { phone: {contains: search, mode: 'insensitive' }}},
+          { location : { address: {contains: search, mode: 'insensitive' }}},
+          { location : { city: {contains: search, mode: 'insensitive' }}},
+          { pharmacist : { user: { firstName: {contains: search, mode: 'insensitive' }}}},
+          { pharmacist : { user: { lastName: {contains: search, mode: 'insensitive' }}}},
+          { pharmacist : { user: { email: {contains: search, mode: 'insensitive' }}}},
+          { pharmacist : { user: { phone: {contains: search, mode: 'insensitive' }}}},
         ],
       });
     }
+
+    //Status Filter
+    where.AND.push({
+      status: selectedStatus ? { equals: selectedStatus } : undefined,
+    });
 
     //Pay Rate Filter
     const min = minRate ? parseFloat(minRate) : undefined;
@@ -252,7 +262,15 @@ export class ShiftsService {
           { title: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
           { company : { name: {contains: search, mode: 'insensitive' }}}, 
+          { company : { email: {contains: search, mode: 'insensitive' }}}, 
+          { company : { phone: {contains: search, mode: 'insensitive' }}}, 
+          { company : { address: {contains: search, mode: 'insensitive' }}}, 
+          { company : { city: {contains: search, mode: 'insensitive' }}}, 
           { location : { name: {contains: search, mode: 'insensitive' }}},
+          { location : { email: {contains: search, mode: 'insensitive' }}},
+          { location : { phone: {contains: search, mode: 'insensitive' }}},
+          { location : { address: {contains: search, mode: 'insensitive' }}},
+          { location : { city: {contains: search, mode: 'insensitive' }}},
         ],
       });
     }
