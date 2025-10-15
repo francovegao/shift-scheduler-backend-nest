@@ -32,21 +32,24 @@ model User {
 }
 
 model Company {
-  id         String   @id @default(uuid())
-  approved   Boolean  @default(true)
-  name       String   @unique
-  email      String?
-  phone      String?
-  address    String?
-  city       String?
-  province   String?
-  postalCode String?
-  createdAt  DateTime @default(now())
+  id          String   @id @default(uuid())
+  approved    Boolean  @default(true)
+  name        String   @unique
+  legalName   String?
+  GSTNumber   String?
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  province    String?
+  postalCode  String?
+  createdAt   DateTime @default(now())
 
   managers  User[]
   locations Location[]
   shifts    Shift[]
 
+  allowedPharmacists PharmacistProfile[] @relation("PharmacistAllowedCompanies")
 }
 
 enum Role {
@@ -57,37 +60,41 @@ enum Role {
 }
 
 model PharmacistProfile {
-  id              String   @id @default(uuid())
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId          String   @unique
-  licenseNumber   String?
-  address         String?
-  city            String?
-  province        String?
-  postalCode      String?
-  email           String?
-  bio             String?
-  experienceYears Int?
-  approved        Boolean
-  createdAt       DateTime @default(now())
+  id                String   @id @default(uuid())
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String   @unique
+  licenseNumber     String?
+  address           String?
+  city              String?
+  province          String?
+  postalCode        String?
+  email             String?
+  bio               String?
+  experienceYears   Int?
+  approved          Boolean
+  canViewAllCompanies Boolean @default(false)
+  createdAt         DateTime @default(now())
 
-  shifts          Shift[]
+  shifts            Shift[]
+  allowedCompanies  Company[] @relation("PharmacistAllowedCompanies")
 }
 
 model Location {
-  id         String  @id @default(uuid())
-  name       String  @unique
-  email      String?
-  phone      String?
-  address    String?
-  city       String?
-  province   String?
-  postalCode String?
-  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  companyId  String
+  id          String  @id @default(uuid())
+  name        String  @unique
+  legalName   String?
+  GSTNumber   String?
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  province    String?
+  postalCode  String?
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId   String
   
-  shifts     Shift[]
-  managers   User[]
+  shifts      Shift[]
+  managers    User[]
 
   @@index([companyId])
 }

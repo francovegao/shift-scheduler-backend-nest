@@ -25,6 +25,8 @@ export class CompaniesService {
     if (query) {
       where.OR = [
         { name: { contains: query, mode: 'insensitive' } },
+        { legalName: { contains: query, mode: 'insensitive' } },
+        { GSTNumber: { contains: query, mode: 'insensitive' } },
         { email: { contains: query, mode: 'insensitive' } },
         { phone: { contains: query, mode: 'insensitive' } },
         { address: { contains: query, mode: 'insensitive' } },
@@ -63,6 +65,7 @@ export class CompaniesService {
         managers: true,
         locations: true,
         shifts: true,
+        allowedPharmacists: true,
       }
      });
 

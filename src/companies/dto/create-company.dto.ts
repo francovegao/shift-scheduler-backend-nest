@@ -13,6 +13,14 @@ export class CreateCompanyDto {
   @ApiProperty()
   name: string;
 
+  @IsString()
+  @ApiProperty({ required: false })
+  legalName?: string;
+
+  @IsString()
+  @ApiProperty({ required: false })
+  GSTNumber?: string;
+
   @IsEmail()
   @ApiProperty({ required: false })
   email?: string;

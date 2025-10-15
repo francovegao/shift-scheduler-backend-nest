@@ -248,6 +248,8 @@ export class UsersService {
   }
 
   async findShifts(id: string) {
+
+    
     const user = await this.prisma.user.findUnique({ 
       where: { 
         id: id,

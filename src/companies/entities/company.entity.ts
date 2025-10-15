@@ -12,6 +12,12 @@ export class CompanyEntity implements Company {
   name: string;
 
   @ApiProperty({ required: false, nullable: true })
+  legalName: string | null;
+
+  @ApiProperty({ required: false, nullable: true })
+  GSTNumber: string | null;
+
+  @ApiProperty({ required: false, nullable: true })
   email: string | null;
 
   @ApiProperty({ required: false, nullable: true })

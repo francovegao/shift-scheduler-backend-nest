@@ -53,4 +53,8 @@ export class CreatePharmacistProfileDto {
   @IsBoolean()
   @ApiProperty({ default: false })
   approved: boolean;
+
+  @IsBoolean()
+  @ApiProperty({ default: false })
+  canViewAllCompanies: boolean;
 }

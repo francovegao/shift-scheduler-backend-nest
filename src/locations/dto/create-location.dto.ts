@@ -9,6 +9,14 @@ export class CreateLocationDto {
   @ApiProperty()
   name: string;
 
+  @IsString()
+  @ApiProperty({ required: false })
+  legalName?: string;
+
+  @IsString()
+  @ApiProperty({ required: false })
+  GSTNumber?: string;
+
   @IsEmail()
   @IsOptional()
   @ApiProperty({ required: false })

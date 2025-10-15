@@ -102,6 +102,8 @@ export class LocationsService {
     where.AND.push({
       OR: [
         { name: { contains: search, mode: 'insensitive' } },
+        { legalName: { contains: search, mode: 'insensitive' } },
+        { GSTNumber: { contains: search, mode: 'insensitive' } },
         { email: { contains: search, mode: 'insensitive' } },
         { phone: { contains: search, mode: 'insensitive' } },
         { address: { contains: search, mode: 'insensitive' } },

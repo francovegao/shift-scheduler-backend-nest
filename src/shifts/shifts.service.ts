@@ -112,7 +112,27 @@ export class ShiftsService {
       where.AND.push({ locationId: currentUser.locationId });
     }
     if (currentUser.role === 'relief_pharmacist') {
-      where.AND.push({ status: 'open' });
+      // Get pharmacist profile and allowed companies
+      const pharmacist = await this.prisma.pharmacistProfile.findUnique({
+        where: { userId: currentUser.id },
+        include: { allowedCompanies: true },
+      });
+
+      if (!pharmacist) {
+        throw new Error("Pharmacist profile not found");
+      }
+
+      if(pharmacist.canViewAllCompanies){
+        where.AND.push({ status: 'open' });
+      }else{
+        const allowedCompanyIds = pharmacist.allowedCompanies.map((c) => c.id);
+
+        where.AND.push({ 
+          status: 'open',
+          companyId: { in: allowedCompanyIds },
+          });
+      }
+
     }
 
     // External filter
