@@ -39,6 +39,7 @@ export class UsersService {
     const include: any = {
         company: true,
         location: true,
+        pharmacistProfile: true,
     }
 
     if (query) {
