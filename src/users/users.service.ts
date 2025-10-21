@@ -101,7 +101,11 @@ export class UsersService {
     };
 
     const include: any = {
-      pharmacistProfile: true,
+      pharmacistProfile: {
+        include: {
+          allowedCompanies: true,
+        }
+      }
     } 
 
     if (query) {

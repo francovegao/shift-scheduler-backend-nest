@@ -48,6 +48,7 @@ model Company {
   managers  User[]
   locations Location[]
   shifts    Shift[]
+  files     File[]
 
   allowedPharmacists PharmacistProfile[] @relation("PharmacistAllowedCompanies")
 }
@@ -150,12 +151,21 @@ enum NotificationType {
 
 model File {
   id         String   @id @default(uuid())
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId     String
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String?
+  company    Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId  String?
   fileName   String
   fileUrl    String
+  mimeType   String?
+  size       Int?
+  type       FileType?
   uploadedAt DateTime @default(now())
+}
 
-  @@index([userId])
+enum FileType {
+  resume
+  logo
+  document
 }
 
