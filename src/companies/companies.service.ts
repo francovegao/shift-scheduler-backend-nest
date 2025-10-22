@@ -40,6 +40,7 @@ export class CompaniesService {
       where,
       skip,
       take: limit,
+      orderBy:{name: 'asc'},
     }),
     this.prisma.company.count({where}),
     ]);
