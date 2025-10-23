@@ -23,10 +23,31 @@ export class PharmacistProfilesService {
     return this.prisma.pharmacistProfile.findUnique({ where: { id } });
   }
 
-  update(id: string, updatePharmacistProfileDto: UpdatePharmacistProfileDto) {
-    //return `This action updates a #${id} pharmacistProfile`;
-    return this.prisma.pharmacistProfile.update({ where: { id }, data: updatePharmacistProfileDto });
+ async update(
+  id: string,
+  updatePharmacistProfileDto: UpdatePharmacistProfileDto
+) {
+  const { allowedCompaniesIds, ...profileData } = updatePharmacistProfileDto;
+  
+  // Build the base data
+  const data: any = { ...profileData };
+
+  // If allowedCompaniesIds is provided, update the relation
+  if (allowedCompaniesIds && allowedCompaniesIds.length > 0) {
+    data.allowedCompanies = {
+      set: allowedCompaniesIds.map((companyId) => ({ id: companyId })),
+    };
   }
+
+  // Perform update
+  const pharmacistProfile = await this.prisma.pharmacistProfile.update({
+    where: { id },
+    data,
+    include: { allowedCompanies: true }, 
+  });
+
+  return pharmacistProfile;
+}
 
   remove(id: string) {
     //return `This action removes a #${id} pharmacistProfile`;

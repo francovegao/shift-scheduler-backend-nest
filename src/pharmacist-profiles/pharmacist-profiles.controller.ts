@@ -39,7 +39,9 @@ export class PharmacistProfilesController {
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
   @ApiCreatedResponse({ type: PharmacistProfileEntity })
-  update(@Param('id') id: string, @Body() updatePharmacistProfileDto: UpdatePharmacistProfileDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updatePharmacistProfileDto: UpdatePharmacistProfileDto) {
     return this.pharmacistProfilesService.update(id, updatePharmacistProfileDto);
   }
 
