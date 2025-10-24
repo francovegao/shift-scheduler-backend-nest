@@ -33,7 +33,7 @@ export class PharmacistProfilesService {
   const data: any = { ...profileData };
 
   // If allowedCompaniesIds is provided, update the relation
-  if (allowedCompaniesIds && allowedCompaniesIds.length > 0) {
+  if (allowedCompaniesIds ) {
     data.allowedCompanies = {
       set: allowedCompaniesIds.map((companyId) => ({ id: companyId })),
     };
