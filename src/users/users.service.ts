@@ -53,20 +53,14 @@ export class UsersService {
 
     if(company){
         where.OR= [
-          { some: {
-              companyId: company,
-              }, 
-          },
+          {companyId: company },
         ];
       }
 
     if(location){
       where.OR= [
-        {  some: {
-            locationId: location,
-            },
-        },
-      ];
+          {locationId: location },
+        ];
     }
 
     const [users, total] = await Promise.all([this.prisma.user.findMany({
@@ -265,9 +259,14 @@ export class UsersService {
           include: {
             shifts: {
               include: {
-                company: true,
-                location: true,
-              }
+            company: true,
+            location: true,
+            pharmacist: {
+              include: {
+                user: true,
+              },
+            },
+          },
             },
           },
         },

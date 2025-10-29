@@ -213,6 +213,11 @@ export class LocationsService {
           include: {
             company: true,
             location: true,
+            pharmacist: {
+              include: {
+                user: true,
+              },
+            },
           }
         },
       }

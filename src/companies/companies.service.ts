@@ -141,6 +141,11 @@ export class CompaniesService {
           include: {
             company: true,
             location: true,
+            pharmacist: {
+              include: {
+                user: true,
+              },
+            },
           }
         },
       }
