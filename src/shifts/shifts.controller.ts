@@ -126,14 +126,6 @@ export class ShiftsController {
     return this.shiftsService.update(id, updateShiftDto);
   }
 
-  @Patch('/take/:id')
-  @UseGuards(FirebaseAuthGuard)
-  @ApiBearerAuth()
-  @ApiCreatedResponse({ type: ShiftEntity })
-  takeShift(@Param('id') id: string, @Body() updateShiftDto: UpdateShiftDto) {
-    return this.shiftsService.takeShift(id, updateShiftDto);
-  }
-
   @Delete(':id')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()

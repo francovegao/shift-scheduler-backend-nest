@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -592,17 +592,42 @@ async findShiftsByDate(
     return this.prisma.shift.findUnique({ where: { id } });
   }
 
-  update(id: string, updateShiftDto: UpdateShiftDto) {
-    return this.prisma.shift.update({ where: { id }, data: updateShiftDto });
-  }
+  async update(id: string, updateShiftDto: UpdateShiftDto) {
+   //find shift before update
+   const existingShift = await this.prisma.shift.findUnique({
+      where: { id },
+    });
 
-  async takeShift(id: string, updateShiftDto: UpdateShiftDto) {
-    const shift = await this.prisma.shift.update({ where: { id }, data: updateShiftDto });
+    if (!existingShift) {
+      throw new NotFoundException('Shift not found');
+    }
 
-    //Emit event to create notifications
-    this.eventEmitter.emit(AppEvents.SHIFT_TAKEN, {shift});
+    //update shift
+    const updatedShift = await this.prisma.shift.update({
+      where: { id },
+      data: updateShiftDto,
+    })
 
-    return shift;
+    //compare old vs new shift
+    const oldStatus = existingShift.status;
+    const newStatus = updatedShift.status;
+
+    //if status was updated -> emit event
+    if (oldStatus !== newStatus) {
+      switch (newStatus) {
+        case 'cancelled':
+          this.eventEmitter.emit(AppEvents.SHIFT_CANCELLED, { shift: updatedShift });
+          break;
+        case 'completed':
+          this.eventEmitter.emit(AppEvents.SHIFT_COMPLETED, { shift: updatedShift });
+          break;
+        case 'taken':
+          this.eventEmitter.emit(AppEvents.SHIFT_TAKEN, { shift: updatedShift });
+          break;
+      }
+    }
+
+    return updatedShift;
   }
 
   remove(id: string) {
