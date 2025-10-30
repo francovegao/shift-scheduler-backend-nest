@@ -3,12 +3,13 @@ import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
-import { equal } from 'assert';
-import { ShiftStatus } from 'generated/prisma';
+import { NotificationsService } from 'src/notifications/notifications.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { AppEvents } from 'src/events/app-events';
 
 @Injectable()
 export class ShiftsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private eventEmitter: EventEmitter2) {}
 
   //CRUD operations
   create(createShiftDto: CreateShiftDto) {
@@ -92,6 +93,7 @@ export class ShiftsService {
     locationId?: string, 
     companyId?: string,
     pharmacistId?: string,
+    shiftId?: string,
     fromDate?: Date,
     toDate?: Date,
     minRate?: string,
@@ -144,6 +146,9 @@ export class ShiftsService {
     }
     if (pharmacistId) {
       where.AND.push({ pharmacistId });
+    }
+    if (shiftId) {
+      where.AND.push({ id: shiftId });
     }
 
     const include: any = {
@@ -247,6 +252,7 @@ export class ShiftsService {
     currentUser: any,
     paginationDto: PaginationDto, 
     search?: string, 
+    shiftId?: string,
     selectedStatus?: string,
     fromDate?: Date,
     toDate?: Date,
@@ -263,6 +269,11 @@ export class ShiftsService {
           userId: currentUser.id,
         } 
       });
+    }
+
+    //external filters
+    if (shiftId) {
+      where.AND.push({ id: shiftId });
     }
 
     const include: any = {
@@ -440,8 +451,31 @@ async findShiftsByDate(
     const where: any = { AND: [] };
 
     // Role-based scoping
+    // if (currentUser.role === 'relief_pharmacist') {
+    //   where.AND.push({ status: 'open' });
+    // }
     if (currentUser.role === 'relief_pharmacist') {
-      where.AND.push({ status: 'open' });
+      // Get pharmacist profile and allowed companies
+      const pharmacist = await this.prisma.pharmacistProfile.findUnique({
+        where: { userId: currentUser.id },
+        include: { allowedCompanies: true },
+      });
+
+      if (!pharmacist) {
+        throw new Error("Pharmacist profile not found");
+      }
+
+      if(pharmacist.canViewAllCompanies){
+        where.AND.push({ status: 'open' });
+      }else{
+        const allowedCompanyIds = pharmacist.allowedCompanies.map((c) => c.id);
+
+        where.AND.push({ 
+          status: 'open',
+          companyId: { in: allowedCompanyIds },
+          });
+      }
+
     }
 
     const include: any = {
@@ -559,8 +593,16 @@ async findShiftsByDate(
   }
 
   update(id: string, updateShiftDto: UpdateShiftDto) {
-    //return `This action updates a #${id} shift`;
     return this.prisma.shift.update({ where: { id }, data: updateShiftDto });
+  }
+
+  async takeShift(id: string, updateShiftDto: UpdateShiftDto) {
+    const shift = await this.prisma.shift.update({ where: { id }, data: updateShiftDto });
+
+    //Emit event to create notifications
+    this.eventEmitter.emit(AppEvents.SHIFT_TAKEN, {shift});
+
+    return shift;
   }
 
   remove(id: string) {

@@ -29,6 +29,7 @@ export class ShiftsController {
   @ApiQuery({ name: 'locationId', required: false, type: String })
   @ApiQuery({ name: 'companyId', required: false, type: String })
   @ApiQuery({ name: 'pharmacistId', required: false, type: String })
+  @ApiQuery({ name: 'shiftId', required: false, type: String })
   @ApiQuery({ name: 'from', required: false, type: String })
   @ApiQuery({ name: 'to', required: false, type: String })
   @ApiQuery({ name: 'minRate', required: false, type: String })
@@ -42,19 +43,21 @@ export class ShiftsController {
     @Query('locationId') locationId?: string,
     @Query('companyId') companyId?: string,
     @Query('pharmacistId') pharmacistId?: string,
+    @Query('shiftId') shiftId?: string,
     @Query('from') fromDate?: Date,
     @Query('to') toDate?: Date,
     @Query('minRate') minRate?: string,
     @Query('maxRate') maxRate?: string,
     @Query('status') selectedStatus?: string,
   ) {
-    return this.shiftsService.findAll(currentUser, paginationDto, search, locationId, companyId, pharmacistId, fromDate, toDate, minRate, maxRate, selectedStatus);
+    return this.shiftsService.findAll(currentUser, paginationDto, search, locationId, companyId, pharmacistId, shiftId, fromDate, toDate, minRate, maxRate, selectedStatus);
   }
 
   @Get('/myshifts')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
   @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'shiftId', required: false, type: String })
   @ApiQuery({ name: 'status', required: false, type: String })
   @ApiQuery({ name: 'from', required: false, type: String })
   @ApiQuery({ name: 'to', required: false, type: String })
@@ -63,11 +66,12 @@ export class ShiftsController {
     @CurrentUser() currentUser,
     @Query() paginationDto: PaginationDto, 
     @Query('search') search?: string,
+    @Query('shiftId') shiftId?: string,
     @Query('status') selectedStatus?: string,
     @Query('from') fromDate?: Date,
     @Query('to') toDate?: Date,
   ) {
-    return this.shiftsService.findPharmacistShifts(currentUser, paginationDto, search, selectedStatus, fromDate, toDate);
+    return this.shiftsService.findPharmacistShifts(currentUser, paginationDto, search, shiftId, selectedStatus, fromDate, toDate);
   }
 
   @Get('/allmyshifts')
@@ -120,6 +124,14 @@ export class ShiftsController {
   @ApiCreatedResponse({ type: ShiftEntity })
   update(@Param('id') id: string, @Body() updateShiftDto: UpdateShiftDto) {
     return this.shiftsService.update(id, updateShiftDto);
+  }
+
+  @Patch('/take/:id')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
+  @ApiCreatedResponse({ type: ShiftEntity })
+  takeShift(@Param('id') id: string, @Body() updateShiftDto: UpdateShiftDto) {
+    return this.shiftsService.takeShift(id, updateShiftDto);
   }
 
   @Delete(':id')

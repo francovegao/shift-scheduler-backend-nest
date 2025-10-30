@@ -9,9 +9,12 @@ import { LocationsModule } from './locations/locations.module';
 import { PharmacistProfilesModule } from './pharmacist-profiles/pharmacist-profiles.module';
 import { AuthModule } from './auth/auth.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
-  imports: [PrismaModule, UsersModule, CompaniesModule, ShiftsModule, LocationsModule, PharmacistProfilesModule, AuthModule, NotificationsModule],
+  imports: [PrismaModule, UsersModule, CompaniesModule, 
+    ShiftsModule, LocationsModule, PharmacistProfilesModule, 
+    AuthModule, NotificationsModule, EventEmitterModule.forRoot()],
   controllers: [AppController],
   providers: [AppService],
 })
