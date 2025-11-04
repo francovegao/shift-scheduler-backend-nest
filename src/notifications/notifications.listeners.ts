@@ -76,6 +76,27 @@ export class NotificationsListener {
     });
     }
 
+      // Notify managers of the location
+    const locationManagers = await this.prisma.user.findMany({
+      where: {
+        locationId: shift.locationId,
+        role: 'location_manager',
+      },
+      select: { id: true },
+    });
+
+    if(locationManagers.length){
+          await this.prisma.notification.createMany({
+            data: locationManagers.map((m) => ({
+              userId: m.id,
+              title: 'Shift Taken',
+              message: `A pharmacist has taken the shift "${shift.title}" Shift Date: ${formattedDate} Time: ${formattedStartTime}-${formattedEndTime} .`,
+              type: 'shift',
+              actionUrl: `${shift.id}`,
+            })),
+          });
+    }
+
     // Notify managers of the company
     const managers = await this.prisma.user.findMany({
       where: {
@@ -139,6 +160,27 @@ export class NotificationsListener {
       }
     }
 
+    // Notify managers of the location
+    const locationManagers = await this.prisma.user.findMany({
+      where: {
+        locationId: shift.locationId,
+        role: 'location_manager',
+      },
+      select: { id: true },
+    });
+
+    if(locationManagers.length){
+          await this.prisma.notification.createMany({
+            data: locationManagers.map((m) => ({
+              userId: m.id,
+              title: 'Shift Taken',
+              message: `A pharmacist has taken the shift "${shift.title}" Shift Date: ${formattedDate} Time: ${formattedStartTime}-${formattedEndTime} .`,
+              type: 'shift',
+              actionUrl: `${shift.id}`,
+            })),
+          });
+    }
+
     // Notify managers of the company
     const managers = await this.prisma.user.findMany({
       where: {
@@ -200,6 +242,27 @@ export class NotificationsListener {
           }
       });
       }
+    }
+
+    // Notify managers of the location
+    const locationManagers = await this.prisma.user.findMany({
+      where: {
+        locationId: shift.locationId,
+        role: 'location_manager',
+      },
+      select: { id: true },
+    });
+
+    if(locationManagers.length){
+          await this.prisma.notification.createMany({
+            data: locationManagers.map((m) => ({
+              userId: m.id,
+              title: 'Shift Taken',
+              message: `A pharmacist has taken the shift "${shift.title}" Shift Date: ${formattedDate} Time: ${formattedStartTime}-${formattedEndTime} .`,
+              type: 'shift',
+              actionUrl: `${shift.id}`,
+            })),
+          });
     }
 
     // Notify managers of the company
