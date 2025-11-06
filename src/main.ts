@@ -22,11 +22,14 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
+  const port = process.env.PORT ?? 8080;
+  const host = '0.0.0.0';
+
   //Error Handling
   const { httpAdapter } = app.get(HttpAdapterHost);
   app.useGlobalFilters(new PrismaClientExceptionFilter(httpAdapter));
 
 
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(port, host);
 }
 bootstrap();

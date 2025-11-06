@@ -10,11 +10,12 @@ import { PharmacistProfilesModule } from './pharmacist-profiles/pharmacist-profi
 import { AuthModule } from './auth/auth.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [PrismaModule, UsersModule, CompaniesModule, 
     ShiftsModule, LocationsModule, PharmacistProfilesModule, 
-    AuthModule, NotificationsModule, EventEmitterModule.forRoot()],
+    AuthModule, NotificationsModule, EventEmitterModule.forRoot(), HealthModule],
   controllers: [AppController],
   providers: [AppService],
 })
