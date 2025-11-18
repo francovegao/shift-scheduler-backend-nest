@@ -1,11 +1,11 @@
 steps:
   # Step 1: Build Docker image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api', '.']
+    args: ['build', '-t', 'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api:latest', '.']
 
   # Step 2: Push to Google Container Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api']
+    args: ['push', 'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api:latest']
 
   # Step 3: Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -13,7 +13,7 @@ steps:
     args:
       [
         'run', 'deploy', 'scheduler-nest-api',
-        '--image', 'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api',
+        '--image', 'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api:latest',
         '--region', 'us-west1',
         '--platform', 'managed',
         '--allow-unauthenticated',
