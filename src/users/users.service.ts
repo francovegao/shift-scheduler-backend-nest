@@ -227,6 +227,7 @@ export class UsersService {
         pharmacistProfile: {
           select: {
             id: true,
+            approved: true,
           }
         },
       }
