@@ -134,11 +134,33 @@ export class UsersService {
     return response;
   }
 
-  findOne(id: string) {
-    //return `This action returns a #${id} user`;
-    return this.prisma.user.findUnique({ 
-      where: { id },
-     });
+  async findOne(id: string) {
+    const user =  await this.prisma.user.findUnique({ 
+      where: { 
+        id: id,
+       },
+       include: {
+        files: true,
+        pharmacistProfile: true,
+        company: {
+          include: {
+            locations: true,
+          }
+        },
+        location: true,
+        },
+     })
+
+    if (!user) {
+      throw new NotFoundException(`User with ID "${id}" not found.`);
+    }
+
+    const response = {
+      data: user,
+    };
+   
+    return response;
+
   }
 
   async findOnePharmacist(id: string) {
