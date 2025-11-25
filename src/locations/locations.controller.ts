@@ -26,14 +26,18 @@ export class LocationsController {
   @ApiBearerAuth()
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'companyId', required: false, type: String })
+  @ApiQuery({ name: 'sortBy', required: false, type: String })
+  @ApiQuery({ name: 'sortOrder', required: false, type: String })
   @ApiOkResponse({ type: LocationEntity, isArray: true })
   findAll(
       @CurrentUser() currentUser,
       @Query() paginationDto: PaginationDto, 
       @Query('search') search?: string,
       @Query('companyId') companyId?: string,
+      @Query('sortBy') sortBy?: string,
+      @Query('sortOrder') sortOrder?: "asc" | "desc",
   ) {
-    return this.locationsService.findAll(currentUser, paginationDto, search, companyId);
+    return this.locationsService.findAll(currentUser, paginationDto, search, companyId, sortBy, sortOrder);
   }
 
   @Get(':id')

@@ -99,6 +99,8 @@ export class ShiftsService {
     minRate?: string,
     maxRate?: string,
     selectedStatus?: string,
+    sortBy?: string,
+    sortOrder?: "asc" | "desc",
   ) {
     const { page = 1 , limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
@@ -159,6 +161,32 @@ export class ShiftsService {
           user: true,
         },
       },
+    }
+
+    //Sort filters
+    let orderBy: any = [];
+
+    if(sortBy){
+      const direction = sortOrder === "desc" ? "desc" : "asc";
+
+      switch(sortBy){
+        case "name":
+          orderBy = [
+            { company: { name: direction } },
+            { location: { name: direction } },
+          ];
+          break;
+        case "payRate":
+          orderBy = [{ payRate: direction }];
+          break;
+        case "startTime":
+          orderBy = [{ startTime: direction }];
+          break;
+        default:
+          orderBy = [{ createdAt: "desc" }];
+      }
+    }else{
+      orderBy = [{ createdAt: "desc" }];
     }
 
     //Search filter
@@ -231,6 +259,7 @@ export class ShiftsService {
       include,
       skip,
       take: limit,
+      orderBy,
     }),
     this.prisma.shift.count({where}),
     ]);

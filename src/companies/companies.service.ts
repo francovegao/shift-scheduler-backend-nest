@@ -14,7 +14,12 @@ export class CompaniesService {
     return this.prisma.company.create({ data: createCompanyDto });
   }
 
-  async findAll(paginationDto: PaginationDto, search?: string) {
+  async findAll(
+    paginationDto: PaginationDto,
+    search?: string,
+    sortBy?: string,
+    sortOrder?: "asc" | "desc",
+    ) {
     const { page = 1 , limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
@@ -36,11 +41,32 @@ export class CompaniesService {
       ];
     }
 
+    
+    //Sort filters
+    let orderBy: any = [];
+
+    if(sortBy){
+      const direction = sortOrder === "desc" ? "desc" : "asc";
+
+      switch(sortBy){
+        case "name":
+          orderBy = [{ name: direction }];
+          break;
+        case "legalName":
+          orderBy = [{ legalName: direction }];
+          break;
+        default:
+          orderBy = [{ createdAt: "desc" }];
+      }
+    }else{
+      orderBy = [{ createdAt: "desc" }];
+    }
+
     const [companies, total] = await Promise.all([this.prisma.company.findMany({
       where,
       skip,
       take: limit,
-      orderBy:{name: 'asc'},
+      orderBy,
     }),
     this.prisma.company.count({where}),
     ]);

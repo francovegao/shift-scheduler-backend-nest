@@ -80,6 +80,8 @@ export class LocationsService {
   paginationDto: PaginationDto, 
   search?: string, 
   companyId?: string,
+  sortBy?: string,
+  sortOrder?: "asc" | "desc",
 ) {
   const { page = 1, limit = 10 } = paginationDto;
   const skip = (page - 1) * limit;
@@ -114,12 +116,39 @@ export class LocationsService {
     });
   }
 
+      
+  //Sort filters
+  let orderBy: any = [];
+
+  if(sortBy){
+    const direction = sortOrder === "desc" ? "desc" : "asc";
+
+    switch(sortBy){
+      case "name":
+        orderBy = [{ name: direction }];
+        break;
+      case "legalName":
+        orderBy = [{ legalName: direction }];
+        break;
+      case "company":
+          orderBy = [
+            { company: { name: direction } },
+          ];
+          break;
+      default:
+        orderBy = [{ company: { createdAt: "desc" }}];
+    }
+  }else{
+    orderBy = [{ company: { createdAt: "desc" }}];
+  }
+
   const [locations, total] = await Promise.all([
     this.prisma.location.findMany({
       where,
       include: { company: true },
       skip,
       take: limit,
+      orderBy,
     }),
     this.prisma.location.count({ where }),
   ]);

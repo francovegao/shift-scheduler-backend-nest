@@ -24,12 +24,16 @@ export class CompaniesController {
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
   @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'sortBy', required: false, type: String })
+  @ApiQuery({ name: 'sortOrder', required: false, type: String })
   @ApiOkResponse({ type: CompanyEntity, isArray: true })
   findAll(
     @Query() paginationDto: PaginationDto, 
     @Query('search') search?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: "asc" | "desc",
    ) {
-    return this.companiesService.findAll(paginationDto, search);
+    return this.companiesService.findAll(paginationDto, search, sortBy, sortOrder);
   }
 
   @Get(':id')

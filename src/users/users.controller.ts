@@ -35,26 +35,34 @@ export class UsersController {
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'locationId', required: false, type: String })
   @ApiQuery({ name: 'companyId', required: false, type: String })
+  @ApiQuery({ name: 'sortBy', required: false, type: String })
+  @ApiQuery({ name: 'sortOrder', required: false, type: String })
   @ApiOkResponse({ type: UserEntity, isArray: true })
   findAll(
     @Query() paginationDto: PaginationDto, 
     @Query('search') search?: string,
     @Query('locationId') locationId?: string,
     @Query('companyId') companyId?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: "asc" | "desc",
   ) {
-    return this.usersService.findAll(paginationDto, search, locationId, companyId);
+    return this.usersService.findAll(paginationDto, search, locationId, companyId, sortBy, sortOrder);
   }
 
   @Get('/pharmacists')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
   @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'sortBy', required: false, type: String })
+  @ApiQuery({ name: 'sortOrder', required: false, type: String })
   @ApiOkResponse({ type: UserEntity, isArray: true })
   findPharmacists(
     @Query() paginationDto: PaginationDto, 
     @Query('search') search?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: "asc" | "desc",
   ) {
-    return this.usersService.findPharmacists(paginationDto, search);
+    return this.usersService.findPharmacists(paginationDto, search, sortBy, sortOrder);
   }
 
   @Get(':id')

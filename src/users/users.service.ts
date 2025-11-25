@@ -25,7 +25,9 @@ export class UsersService {
     paginationDto: PaginationDto, 
     search?: string,
     locationId?: string, 
-    companyId?: string
+    companyId?: string,
+    sortBy?: string,
+    sortOrder?: "asc" | "desc",
   ) {
     const { page = 1 , limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
@@ -63,11 +65,38 @@ export class UsersService {
         ];
     }
 
+    //Sort filters
+    let orderBy: any = [];
+
+    if(sortBy){
+      const direction = sortOrder === "desc" ? "desc" : "asc";
+
+      switch(sortBy){
+        case "firstName":
+          orderBy = [{ firstName: direction }];
+          break;
+        case "lastName":
+          orderBy = [{ lastName: direction }];
+          break;
+        case "company":
+          orderBy = [
+            { company: { name: direction } },
+            { location: { name: direction } },
+          ];
+          break;
+        default:
+          orderBy = [{ createdAt: "desc" }];
+      }
+    }else{
+      orderBy = [{ createdAt: "desc" }];
+    }
+
     const [users, total] = await Promise.all([this.prisma.user.findMany({
       where,
       include,
       skip,
       take: limit,
+      orderBy,
     }),
     this.prisma.user.count({where}),
     ]);
@@ -85,7 +114,12 @@ export class UsersService {
     return response;
   }
 
-  async findPharmacists(paginationDto: PaginationDto, search?: string) {
+  async findPharmacists(
+    paginationDto: PaginationDto, 
+    search?: string,
+    sortBy?: string,
+    sortOrder?: "asc" | "desc",
+  ) {
     const { page = 1 , limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
@@ -112,11 +146,32 @@ export class UsersService {
       ];
     }
 
+    //Sort filters
+    let orderBy: any = [];
+
+    if(sortBy){
+      const direction = sortOrder === "desc" ? "desc" : "asc";
+
+      switch(sortBy){
+        case "firstName":
+          orderBy = [{ firstName: direction }];
+          break;
+        case "lastName":
+          orderBy = [{ lastName: direction }];
+          break;
+        default:
+          orderBy = [{ createdAt: "desc" }];
+      }
+    }else{
+      orderBy = [{ createdAt: "desc" }];
+    }
+
     const [pharmacists, total] = await Promise.all([this.prisma.user.findMany({
       where,
       include,
       skip,
       take: limit,
+      orderBy,
     }),
     this.prisma.user.count({where}),
     ]);
