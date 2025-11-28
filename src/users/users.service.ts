@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -42,6 +42,7 @@ export class UsersService {
         company: true,
         location: true,
         pharmacistProfile: true,
+        allowedCompanies: true,
     }
 
     if (query) {
@@ -202,6 +203,7 @@ export class UsersService {
             locations: true,
           }
         },
+        allowedCompanies: true,
         location: true,
         },
      })
@@ -386,12 +388,42 @@ export class UsersService {
      });
   }
 
-  update(id: string, updateUserDto: UpdateUserDto) {
-    //return `This action updates a #${id} user`;
-    return this.prisma.user.update({
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    const { allowedCompaniesIds, ...userData } = updateUserDto;
+
+    // Get user
+    const existingUser = await this.prisma.user.findUnique({
       where: { id },
-      data: updateUserDto,
+      select: { role: true },
     });
+
+    if (!existingUser) {
+      throw new NotFoundException("User not found");
+    }
+
+    // Build the base data
+    const data: any = { ...userData };
+
+    // If allowedCompaniesIds is provided, update the relation
+    if (allowedCompaniesIds !== undefined) {
+      if (existingUser.role !== "pharmacy_manager") {
+        throw new ForbiddenException(
+          "Only pharmacy managers can have allowed companies"
+        );
+      }
+
+      data.allowedCompanies = {
+        set: allowedCompaniesIds.map((companyId) => ({ id: companyId })),
+      };
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id },
+      data,
+      include: { allowedCompanies: true }, 
+    });
+
+    return user;
   }
 
   async remove(id: string) {

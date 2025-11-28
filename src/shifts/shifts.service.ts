@@ -1,9 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
-import { NotificationsService } from 'src/notifications/notifications.service';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AppEvents } from 'src/events/app-events';
 
@@ -110,11 +109,23 @@ export class ShiftsService {
 
     // Role-based scoping
     if (currentUser.role === 'pharmacy_manager') {
-      where.AND.push({ companyId: currentUser.companyId });
+
+      // Get manager allowed companies
+      const manager = await this.prisma.user.findUnique({
+        where: { id: currentUser.id },
+        include: { allowedCompanies: true },
+      });
+
+      if(companyId && manager?.allowedCompanies.find(c => c.id === companyId)){
+        where.AND.push({ companyId });
+      }else{
+        where.AND.push({ companyId: currentUser.companyId });
+      }   
     }
     if (currentUser.role === 'location_manager') {
       where.AND.push({ locationId: currentUser.locationId });
     }
+
     if (currentUser.role === 'relief_pharmacist') {
       // Get pharmacist profile and allowed companies
       const pharmacist = await this.prisma.pharmacistProfile.findUnique({
@@ -389,6 +400,7 @@ export class ShiftsService {
   async findAllUserShifts(
     currentUser: any,
     paginationDto: PaginationDto, 
+    companyId?: string,
   ) {
     const { page = 1 , limit = 1000 } = paginationDto;
     const skip = (page - 1) * limit;
@@ -404,7 +416,18 @@ export class ShiftsService {
     }
 
     if (currentUser.role === 'pharmacy_manager') {
-      where.AND.push({ companyId: currentUser.companyId });
+    
+      // Get manager allowed companies
+      const manager = await this.prisma.user.findUnique({
+        where: { id: currentUser.id },
+        include: { allowedCompanies: true },
+      });
+
+      if(companyId && manager?.allowedCompanies.find(c => c.id === companyId)){
+        where.AND.push({ companyId });
+      }else{
+        where.AND.push({ companyId: currentUser.companyId });
+      } 
 
       openWhere = { ...where, status: 'open' };
     }
@@ -557,6 +580,7 @@ async findShiftsByDate(
   async findLatestShifts(
     currentUser: any,
     paginationDto: PaginationDto, 
+    companyId?: string,
   ) {
     const { page = 1 , limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
@@ -566,7 +590,17 @@ async findShiftsByDate(
 
     //Role based filtering
     if (currentUser.role === 'pharmacy_manager') {
-      where.AND.push({ companyId: currentUser.companyId });
+      // Get manager allowed companies
+      const manager = await this.prisma.user.findUnique({
+        where: { id: currentUser.id },
+        include: { allowedCompanies: true },
+      });
+
+      if(companyId && manager?.allowedCompanies.find(c => c.id === companyId)){
+        where.AND.push({ companyId });
+      }else{
+        where.AND.push({ companyId: currentUser.companyId });
+      } 
     }
 
     if (currentUser.role === 'location_manager') {

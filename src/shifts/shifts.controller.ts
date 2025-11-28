@@ -83,12 +83,14 @@ export class ShiftsController {
   @Get('/allmyshifts')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
+  @ApiQuery({ name: 'companyId', required: false, type: String })
   @ApiOkResponse({ type: ShiftEntity })
   findAllUserShifts(
     @CurrentUser() currentUser,
     @Query() paginationDto: PaginationDto,
+    @Query('companyId') companyId?: string,
   ) {
-    return this.shiftsService.findAllUserShifts(currentUser, paginationDto);
+    return this.shiftsService.findAllUserShifts(currentUser, paginationDto, companyId);
   }
 
 
@@ -108,12 +110,14 @@ export class ShiftsController {
   @Get('/latest')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
+  @ApiQuery({ name: 'companyId', required: false, type: String })
   @ApiOkResponse({ type: ShiftEntity, isArray: true })
   findLatestShifts(
     @CurrentUser() currentUser,
     @Query() paginationDto: PaginationDto,
+    @Query('companyId') companyId?: string,
   ) {
-    return this.shiftsService.findLatestShifts(currentUser, paginationDto);
+    return this.shiftsService.findLatestShifts(currentUser, paginationDto, companyId);
   }
 
   @Get(':id')

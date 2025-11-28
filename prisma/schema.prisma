@@ -21,6 +21,7 @@ model User {
   role        Role
   company     Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
   companyId   String?
+  allowedCompanies Company[] @relation("ManagerAllowedCompanies")
   location    Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
   locationId  String?
 
@@ -52,6 +53,7 @@ model Company {
   files     File[]
 
   allowedPharmacists PharmacistProfile[] @relation("PharmacistAllowedCompanies")
+  allowedManagers User[] @relation("ManagerAllowedCompanies")
 }
 
 enum Role {

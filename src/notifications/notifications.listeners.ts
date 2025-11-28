@@ -76,7 +76,7 @@ export class NotificationsListener {
     });
     }
 
-      // Notify managers of the location
+    // Notify managers of the location
     const locationManagers = await this.prisma.user.findMany({
       where: {
         locationId: shift.locationId,
@@ -100,8 +100,11 @@ export class NotificationsListener {
     // Notify managers of the company
     const managers = await this.prisma.user.findMany({
       where: {
-        companyId: shift.companyId,
         role: 'pharmacy_manager',
+        OR: [
+          { companyId: shift.companyId },
+          { allowedCompanies: { some: { id: shift.companyId } } },
+        ]
       },
       select: { id: true },
     });
@@ -184,8 +187,11 @@ export class NotificationsListener {
     // Notify managers of the company
     const managers = await this.prisma.user.findMany({
       where: {
-        companyId: shift.companyId,
         role: 'pharmacy_manager',
+        OR: [
+          { companyId: shift.companyId },
+          { allowedCompanies: { some: { id: shift.companyId } } },
+        ]
       },
       select: { id: true },
     });
@@ -268,8 +274,11 @@ export class NotificationsListener {
     // Notify managers of the company
     const managers = await this.prisma.user.findMany({
       where: {
-        companyId: shift.companyId,
         role: 'pharmacy_manager',
+        OR: [
+          { companyId: shift.companyId },
+          { allowedCompanies: { some: { id: shift.companyId } } },
+        ]
       },
       select: { id: true },
     });

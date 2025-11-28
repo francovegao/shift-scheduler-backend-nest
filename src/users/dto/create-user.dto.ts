@@ -1,6 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
+  ArrayUnique,
+  IsArray,
   IsEmail,
   IsEnum,
   IsNotEmpty,
@@ -51,6 +53,17 @@ export class CreateUserDto {
   @IsOptional()
   @ApiProperty({ required: false })
   companyId?: string;
+
+  @IsArray()
+  @IsOptional()
+  @ArrayUnique()
+  @ApiProperty({
+    required: false,
+    type: [String],
+    description: 'List of company IDs this user can manage',
+    example: ['company-id-1', 'company-id-2'],
+  })
+  allowedCompaniesIds?: string[];
 
   @IsString()
   @IsOptional()
