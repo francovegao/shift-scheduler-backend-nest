@@ -45,6 +45,9 @@ model Company {
   city        String?
   province    String?
   postalCode  String?
+  contactName String?
+  contactPhone String?
+  contactEmail String?
   createdAt   DateTime @default(now())
 
   managers  User[]

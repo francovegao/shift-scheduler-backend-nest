@@ -38,6 +38,9 @@ export class CompaniesService {
         { city: { contains: query, mode: 'insensitive' } },
         { province: { contains: query, mode: 'insensitive' } },
         { postalCode: { contains: query, mode: 'insensitive' } },
+        { contactName: { contains: query, mode: 'insensitive' } },
+        { contactPhone: { contains: query, mode: 'insensitive' } },
+        { contactEmail: { contains: query, mode: 'insensitive' } },
       ];
     }
 

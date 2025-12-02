@@ -35,6 +35,15 @@ export class CompanyEntity implements Company {
   @ApiProperty({ required: false, nullable: true })
   postalCode: string | null;
 
+  @ApiProperty({ required: false, nullable: true })
+  contactName: string | null;
+
+  @ApiProperty({ required: false, nullable: true })
+  contactPhone: string | null;
+
+  @ApiProperty({ required: false, nullable: true })
+  contactEmail: string | null;
+
   @ApiProperty()
   createdAt: Date;
 }

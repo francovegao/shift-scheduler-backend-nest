@@ -669,6 +669,13 @@ async findShiftsByDate(
     const updatedShift = await this.prisma.shift.update({
       where: { id },
       data: updateShiftDto,
+      include: {
+        company: {
+          select: {
+            name: true,
+          }
+        }
+      }
     })
 
     //compare old vs new shift
@@ -697,4 +704,38 @@ async findShiftsByDate(
     //return `This action removes a #${id} shift`;
     return this.prisma.shift.delete({ where: { id } });
   }
+
+  //Auto complete shifts function for nightly job
+  async autoCompleteShifts() {
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0); //midnight today
+
+    const cancelled = await this.prisma.shift.updateMany({
+        where: {
+          status: 'open',
+          endTime: { lte: cutoff },
+        },
+        data: {
+          status: 'cancelled',
+        },
+      });
+
+    const completed = await this.prisma.shift.updateMany({
+        where: {
+          status: 'taken',
+          endTime: { lte: cutoff },
+        },
+        data: {
+          status: 'completed',
+        },
+      });
+
+      return {
+        message: `Auto-closed ${cancelled.count+completed.count} shifts`,
+        cancelled: cancelled.count,
+        completed: completed.count,
+      };
+  }
 }
+
+

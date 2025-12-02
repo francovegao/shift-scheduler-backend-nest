@@ -115,7 +115,7 @@ export class NotificationsListener {
       data: managers.map((m) => ({
         userId: m.id,
         title: 'Shift Taken',
-        message: `A pharmacist has taken the shift "${shift.title}" Shift Date: ${formattedDate} Time: ${formattedStartTime}-${formattedEndTime} .`,
+        message: `A pharmacist has taken the shift "${shift.title}" Shift Date: ${formattedDate} Time: ${formattedStartTime}-${formattedEndTime} Pharmacy: ${shift?.company?.name}.`,
         type: 'shift',
         actionUrl: `${shift.id}`,
       })),
@@ -202,7 +202,7 @@ export class NotificationsListener {
       data: managers.map((m) => ({
         userId: m.id,
         title: 'Shift Cancelled',
-        message: `The shift "${shift.title}" Shift Date: ${formattedDate} Time: ${formattedStartTime}-${formattedEndTime} has been cancelled.`,
+        message: `The shift "${shift.title}" Shift Date: ${formattedDate} Time: ${formattedStartTime}-${formattedEndTime} Pharmacy: ${shift?.company?.name} has been cancelled.`,
         type: 'shift',
         actionUrl: `${shift.id}`,
       })),
@@ -289,7 +289,7 @@ export class NotificationsListener {
       data: managers.map((m) => ({
         userId: m.id,
         title: 'Shift Completed',
-        message: `The shift "${shift.title}" Shift Date: ${formattedDate} Time: ${formattedStartTime}-${formattedEndTime} has been completed.`,
+        message: `The shift "${shift.title}" Shift Date: ${formattedDate} Time: ${formattedStartTime}-${formattedEndTime} Pharmacy: ${shift?.company?.name} has been completed.`,
         type: 'shift',
         actionUrl: `${shift.id}`,
       })),

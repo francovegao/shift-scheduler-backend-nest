@@ -43,6 +43,18 @@ export class CreateCompanyDto {
 
   @IsString()
   @ApiProperty({ required: false })
+  contactName?: string;
+
+  @IsString()
+  @ApiProperty({ required: false })
+  contactPhone?: string;
+
+  @IsString()
+  @ApiProperty({ required: false })
+  contactEmail?: string;
+
+  @IsString()
+  @ApiProperty({ required: false })
   postalCode?: string;
 }
 

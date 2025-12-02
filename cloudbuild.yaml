@@ -26,6 +26,23 @@ steps:
         #'--set-env-vars', 'PORT=8080'
       ]
 
+  # Step 4: Deploy Cloud Run Job
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      [
+        'run', 'jobs', 'deploy', 'shift-auto-close-job',
+        '--image', 'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api:latest',
+        '--region', 'us-west1',
+        '--set-env-vars', 'NODE_ENV=staging',
+        '--set-secrets', 'DATABASE_URL=projects/353576862326/secrets/DATABASE_URL:latest',
+        '--set-secrets', 'FIREBASE_PRIVATE_KEY=projects/353576862326/secrets/FIREBASE_PRIVATE_KEY:latest',
+        '--set-secrets', 'FIREBASE_CLIENT_EMAIL=projects/353576862326/secrets/FIREBASE_CLIENT_EMAIL:latest',
+        '--set-secrets', 'FIREBASE_PROJECT_ID=projects/353576862326/secrets/FIREBASE_PROJECT_ID:latest',
+        '--command', 'npm',
+        '--args', 'run,start:job'
+      ]
+
 images:
   - 'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api'
  
