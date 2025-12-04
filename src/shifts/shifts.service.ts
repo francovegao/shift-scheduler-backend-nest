@@ -708,7 +708,7 @@ async findShiftsByDate(
   //Auto complete shifts function for nightly job
   async autoCompleteShifts() {
     const cutoff = new Date();
-    cutoff.setHours(0, 0, 0, 0); //midnight today
+    cutoff.setHours(8, 0, 0, 0); //+8 hours of new day to make up for time zone
 
     const cancelled = await this.prisma.shift.updateMany({
         where: {
@@ -732,6 +732,7 @@ async findShiftsByDate(
 
       return {
         message: `Auto-closed ${cancelled.count+completed.count} shifts`,
+        cutoffTime: cutoff,
         cancelled: cancelled.count,
         completed: completed.count,
       };

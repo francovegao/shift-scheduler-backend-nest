@@ -10,8 +10,8 @@ async function bootstrap() {
   const shiftsService = app.get(ShiftsService);
 
   console.log('Running auto-complete job...');
-  await shiftsService.autoCompleteShifts();  // <-- you implement this
-  console.log('Job complete.');
+  const results = await shiftsService.autoCompleteShifts();
+  console.log('Job complete. Result:', results);
 
   await app.close();
 }
