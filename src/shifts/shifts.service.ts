@@ -747,11 +747,10 @@ async findShiftsByDate(
   const result: Record<string, any> = {};
 
   // Initialize all days
-  for (
-    let d = new Date(start);
-    d <= end;
-    d.setDate(d.getDate() + 1)
-  ) {
+  let d = startOfLocalDay(start, "America/Vancouver");
+  const endLocal = startOfLocalDay(end, "America/Vancouver");
+
+  while (d <= endLocal) {
     const key = toLocalDateKey(d, "America/Vancouver");
     result[key] = {
       date: key,
@@ -760,11 +759,23 @@ async findShiftsByDate(
       cancelled: 0,
       completed: 0,
     };
+    d.setDate(d.getDate() + 1);
   }
 
   // Fill counts
   raw.forEach((item) => {
     const dateKey = toLocalDateKey(item.startTime, "America/Vancouver");
+    
+    if (!result[dateKey]) {
+      result[dateKey] = {
+        date: dateKey,
+        open: 0,
+        taken: 0,
+        cancelled: 0,
+        completed: 0,
+      };
+    }
+
     result[dateKey][item.status] += item._count._all;
   });
 
@@ -926,5 +937,22 @@ function toLocalDateKey(date: Date, timeZone: string) {
     day: "2-digit",
   }).format(date); // YYYY-MM-DD
 }
+
+function startOfLocalDay(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .formatToParts(date)
+    .reduce((acc, p) => {
+      acc[p.type] = p.value;
+      return acc;
+    }, {} as any);
+
+  return new Date(`${parts.year}-${parts.month}-${parts.day}T00:00:00`);
+}
+
 
 
