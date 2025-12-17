@@ -120,6 +120,32 @@ export class ShiftsController {
     return this.shiftsService.findLatestShifts(currentUser, paginationDto, companyId);
   }
 
+  @Get('/month')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
+  @ApiQuery({ name: 'month', required: false, type: String })
+  @ApiOkResponse({ type: ShiftEntity, isArray: true })
+  findMonthShifts(
+    @CurrentUser() currentUser,
+    @Query() paginationDto: PaginationDto,
+    @Query('month') month?: string,
+  ) {
+    return this.shiftsService.findMonthShifts(currentUser, paginationDto, month);
+  }
+
+  @Get('/week')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
+  @ApiQuery({ name: 'week', required: false, type: String })
+  @ApiOkResponse({ type: ShiftEntity, isArray: true })
+  findWeekShifts(
+    @CurrentUser() currentUser,
+    @Query() paginationDto: PaginationDto,
+    @Query('week') week: "current" | "last" | "beforeLast" | "next" | "afterNext",
+  ) {
+    return this.shiftsService.findWeekShifts(currentUser, paginationDto, week);
+  }
+
   @Get(':id')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()

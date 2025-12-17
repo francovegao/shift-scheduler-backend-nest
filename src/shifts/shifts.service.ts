@@ -650,6 +650,138 @@ async findShiftsByDate(
     return response;
   }
 
+  async findMonthShifts(
+    currentUser: any,
+    paginationDto: PaginationDto, 
+    month?: string
+  ) {
+    const { page = 1 , limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    // Build dynamic filters
+    const where: any = { AND: [] };
+
+    //Month filter
+    if (month) {
+      const [year, monthNum] = month.split("-").map(Number);
+      const startDate = new Date(year, monthNum - 1, 1, 0, 0, 0, 0);
+      const endDate = new Date(year, monthNum, 0, 23, 59, 59, 999);
+
+      where.AND.push({
+        startTime: { 
+            gte: startDate,
+            lte: endDate,
+           },
+      });
+    }
+
+    const [shifts, total, statusCounts] = await Promise.all([this.prisma.shift.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { startTime: "asc" },
+    }),
+    this.prisma.shift.count({where}),
+    this.prisma.shift.groupBy({
+      by: ["status"],
+      where,
+      _count: { _all: true },
+    }),
+    ]);
+
+    const counts = {
+      total: 0,
+      open: 0,
+      taken: 0,
+      cancelled: 0,
+      completed: 0,
+    };
+
+    statusCounts.forEach((item) => {
+      counts[item.status] = item._count._all;
+      counts.total += item._count._all;
+    });
+
+    const response = {
+      data: shifts,
+      meta: {
+        totalItems: total,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+        counts: counts,
+      }
+    };
+
+    return response;
+  }
+
+  async findWeekShifts(
+    currentUser: any,
+    paginationDto: PaginationDto, 
+    week: "current" | "last" | "beforeLast" | "next" | "afterNext" = "current"
+  ) {
+    const { page = 1 , limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    const { start, end } = getWeekRange(week);
+
+    // Build dynamic filters
+    const where: any = { AND: [] };
+
+    where.AND.push({
+        startTime: { 
+            gte: start,
+            lte: end,
+           },
+      });
+
+   // Group by day + status
+  const raw = await this.prisma.shift.groupBy({
+    by: ["status", "startTime"],
+    where,
+    _count: { _all: true },
+  });
+
+  // Normalize per-day results
+  const result: Record<string, any> = {};
+
+  // Initialize all days
+  for (
+    let d = new Date(start);
+    d <= end;
+    d.setDate(d.getDate() + 1)
+  ) {
+    const key = toLocalDateKey(d, "America/Vancouver");
+    result[key] = {
+      date: key,
+      open: 0,
+      taken: 0,
+      cancelled: 0,
+      completed: 0,
+    };
+  }
+
+  // Fill counts
+  raw.forEach((item) => {
+    const dateKey = toLocalDateKey(item.startTime, "America/Vancouver");
+    result[dateKey][item.status] += item._count._all;
+  });
+
+    const response = {
+      data: Object.values(result),
+      meta: {
+        range: {
+          start,
+          end,
+          week,
+        },
+      }
+    };
+
+    return response;
+  }
+
   findOne(id: string) {
     //return `This action returns a #${id} shift`;
     return this.prisma.shift.findUnique({ where: { id } });
@@ -737,6 +869,62 @@ async findShiftsByDate(
         completed: completed.count,
       };
   }
+}
+
+
+function getWeekRange(week: string) {
+  const now = new Date();
+
+  // Get Monday of current week
+  const day = now.getDay(); // 0 (Sun) - 6 (Sat)
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + diffToMonday);
+  monday.setHours(0, 0, 0, 0);
+
+  let start = new Date(monday);
+  let end = new Date(monday);
+
+  switch (week) {
+    case "last":
+      start.setDate(start.getDate() - 7);
+      end.setDate(end.getDate() - 1);
+      break;
+
+    case "beforeLast":
+      start.setDate(start.getDate() - 14);
+      end.setDate(end.getDate() - 8);
+      break;
+
+    case "next":
+      start.setDate(start.getDate() + 7);
+      end.setDate(end.getDate() + 13);
+      break;
+
+    case "afterNext":
+      start.setDate(start.getDate() + 14);
+      end.setDate(end.getDate() + 20);
+      break;
+
+    case "current":
+    default:
+      end.setDate(end.getDate() + 6);
+      break;
+  }
+
+  end.setHours(23, 59, 59, 999);
+
+  return { start, end };
+}
+
+function toLocalDateKey(date: Date, timeZone: string) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date); // YYYY-MM-DD
 }
 
 
