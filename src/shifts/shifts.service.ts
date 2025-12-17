@@ -743,15 +743,20 @@ async findShiftsByDate(
     _count: { _all: true },
   });
 
+  // Initialize all days
+  const days: string[] = [];
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start);
+    d.setUTCDate(start.getUTCDate() + i);
+
+    days.push(d.toISOString().slice(0, 10))
+  }
+
   // Normalize per-day results
   const result: Record<string, any> = {};
 
-  // Initialize all days
-  let d = startOfLocalDay(start, "America/Vancouver");
-  const endLocal = startOfLocalDay(end, "America/Vancouver");
-
-  while (d <= endLocal) {
-    const key = toLocalDateKey(d, "America/Vancouver");
+  days.forEach((key) => {
     result[key] = {
       date: key,
       open: 0,
@@ -759,22 +764,13 @@ async findShiftsByDate(
       cancelled: 0,
       completed: 0,
     };
-    d.setDate(d.getDate() + 1);
-  }
+  });
 
   // Fill counts
   raw.forEach((item) => {
-    const dateKey = toLocalDateKey(item.startTime, "America/Vancouver");
+    const dateKey = item.startTime.toISOString().slice(0, 10);
     
-    if (!result[dateKey]) {
-      result[dateKey] = {
-        date: dateKey,
-        open: 0,
-        taken: 0,
-        cancelled: 0,
-        completed: 0,
-      };
-    }
+    if (!result[dateKey]) return;
 
     result[dateKey][item.status] += item._count._all;
   });
@@ -883,15 +879,28 @@ async findShiftsByDate(
 }
 
 
-function getWeekRange(week: string) {
+function getWeekRange(
+  week: "current" | "last" | "beforeLast" | "next" | "afterNext",
+  timeZone = "America/Vancouver"
+){
   const now = new Date();
+
+   // Convert "now" to local date parts
+  const local = new Date(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+    }).format(now)
+  );
 
   // Get Monday of current week
   const day = now.getDay(); // 0 (Sun) - 6 (Sat)
   const diffToMonday = day === 0 ? -6 : 1 - day;
 
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + diffToMonday);
+  const monday = new Date(local);
+  monday.setDate(local.getDate() + diffToMonday);
   monday.setHours(0, 0, 0, 0);
 
   let start = new Date(monday);
