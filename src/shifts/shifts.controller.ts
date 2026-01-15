@@ -35,6 +35,7 @@ export class ShiftsController {
   @ApiQuery({ name: 'minRate', required: false, type: String })
   @ApiQuery({ name: 'maxRate', required: false, type: String })
   @ApiQuery({ name: 'status', required: false, type: String })
+  @ApiQuery({ name: 'published', required: false, type: String })
   @ApiQuery({ name: 'sortBy', required: false, type: String })
   @ApiQuery({ name: 'sortOrder', required: false, type: String })
   @ApiOkResponse({ type: ShiftEntity, isArray: true })
@@ -51,12 +52,13 @@ export class ShiftsController {
     @Query('minRate') minRate?: string,
     @Query('maxRate') maxRate?: string,
     @Query('status') selectedStatus?: string,
+    @Query('published') published?: string,
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: "asc" | "desc",
   ) {
     return this.shiftsService.findAll(currentUser, paginationDto, search, 
       locationId, companyId, pharmacistId, shiftId, fromDate, toDate,
-       minRate, maxRate, selectedStatus, sortBy, sortOrder);
+       minRate, maxRate, selectedStatus, published, sortBy, sortOrder);
   }
 
   @Get('/myshifts')
@@ -158,7 +160,9 @@ export class ShiftsController {
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
   @ApiCreatedResponse({ type: ShiftEntity })
-  update(@Param('id') id: string, @Body() updateShiftDto: UpdateShiftDto) {
+  update(
+    @Param('id') id: string, 
+    @Body() updateShiftDto: UpdateShiftDto) {
     return this.shiftsService.update(id, updateShiftDto);
   }
 

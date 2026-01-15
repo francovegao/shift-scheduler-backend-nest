@@ -44,6 +44,11 @@ export class CreateShiftDto {
   @ApiProperty()
   status: ShiftStatus;
 
+  @IsBoolean()
+  @IsNotEmpty()
+  @ApiProperty()
+  published: boolean;
+
   @IsString()
   @IsOptional()
   @ApiProperty({ required: false })

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -98,6 +98,7 @@ export class ShiftsService {
     minRate?: string,
     maxRate?: string,
     selectedStatus?: string,
+    published?: string,
     sortBy?: string,
     sortOrder?: "asc" | "desc",
   ) {
@@ -138,12 +139,13 @@ export class ShiftsService {
       }
 
       if(pharmacist.canViewAllCompanies){
-        where.AND.push({ status: 'open' });
+        where.AND.push({ status: 'open', published: true });
       }else{
         const allowedCompanyIds = pharmacist.allowedCompanies.map((c) => c.id);
 
         where.AND.push({ 
           status: 'open',
+          published: true,
           companyId: { in: allowedCompanyIds },
           });
       }
@@ -163,6 +165,7 @@ export class ShiftsService {
     if (shiftId) {
       where.AND.push({ id: shiftId });
     }
+  
 
     const include: any = {
       company: true,
@@ -228,6 +231,16 @@ export class ShiftsService {
     where.AND.push({
       status: selectedStatus ? { equals: selectedStatus } : undefined,
     });
+
+    //Published Filter
+    const isPublished = published === 'true' ? true : published === 'false' ? false : undefined;
+
+    // Published Filter
+    if (isPublished !== undefined) {
+      where.AND.push({
+        published: { equals: isPublished },
+      });
+    }
 
     //Pay Rate Filter
     const min = minRate ? parseFloat(minRate) : undefined;
@@ -446,7 +459,10 @@ export class ShiftsService {
         } 
       });
 
-      openWhere = {  status: 'open' };
+      openWhere = {  
+        status: 'open',
+        published: true 
+       };
 
     }
 
@@ -518,12 +534,13 @@ async findShiftsByDate(
       }
 
       if(pharmacist.canViewAllCompanies){
-        where.AND.push({ status: 'open' });
+        where.AND.push({ status: 'open', published: true });
       }else{
         const allowedCompanyIds = pharmacist.allowedCompanies.map((c) => c.id);
 
         where.AND.push({ 
           status: 'open',
+          published: true,
           companyId: { in: allowedCompanyIds },
           });
       }
@@ -794,7 +811,10 @@ async findShiftsByDate(
     return this.prisma.shift.findUnique({ where: { id } });
   }
 
-  async update(id: string, updateShiftDto: UpdateShiftDto) {
+  async update(
+    id: string,
+    updateShiftDto: UpdateShiftDto,
+  ) {
    //find shift before update
    const existingShift = await this.prisma.shift.findUnique({
       where: { id },
@@ -802,6 +822,15 @@ async findShiftsByDate(
 
     if (!existingShift) {
       throw new NotFoundException('Shift not found');
+    }
+
+    const isTakingShift =
+      updateShiftDto.status === 'taken';
+
+    if (isTakingShift && !existingShift.published) {
+      throw new ForbiddenException(
+        'This shift is not published yet and cannot be taken'
+      );
     }
 
     //update shift

@@ -30,6 +30,9 @@ export class ShiftEntity implements Shift {
     status: ShiftStatus;
 
     @ApiProperty()
+    published: boolean;
+
+    @ApiProperty()
     createdAt: Date;
 
     @ApiProperty()

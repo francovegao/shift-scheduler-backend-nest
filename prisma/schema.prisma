@@ -118,6 +118,7 @@ model Shift {
   endTime      DateTime
   payRate      Float
   status       ShiftStatus       @default(open)
+  published    Boolean           @default(false)
   createdAt    DateTime          @default(now())
   pharmacist   PharmacistProfile? @relation(fields: [pharmacistId], references: [id], onDelete: SetNull)
   pharmacistId String?
@@ -125,6 +126,7 @@ model Shift {
   @@index([companyId])
   @@index([locationId])
   @@index([pharmacistId])
+  @@index([published])
 }
 
 enum ShiftStatus {
