@@ -37,4 +37,7 @@ export class ShiftEntity implements Shift {
 
     @ApiProperty()
     pharmacistId: string;
+
+    @ApiProperty({ required: false, nullable: true })
+    seriesId: string | null;
 }

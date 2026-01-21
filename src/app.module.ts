@@ -11,11 +11,12 @@ import { AuthModule } from './auth/auth.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { HealthModule } from './health/health.module';
+import { ShiftSeriesModule } from './shift-series/shift-series.module';
 
 @Module({
   imports: [PrismaModule, UsersModule, CompaniesModule, 
     ShiftsModule, LocationsModule, PharmacistProfilesModule, 
-    AuthModule, NotificationsModule, EventEmitterModule.forRoot(), HealthModule],
+    AuthModule, NotificationsModule, EventEmitterModule.forRoot(), HealthModule, ShiftSeriesModule],
   controllers: [AppController],
   providers: [AppService],
 })

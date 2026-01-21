@@ -54,6 +54,7 @@ model Company {
   locations Location[]
   shifts    Shift[]
   files     File[]
+  shiftSeries ShiftSeries[]
 
   allowedPharmacists PharmacistProfile[] @relation("PharmacistAllowedCompanies")
   allowedManagers User[] @relation("ManagerAllowedCompanies")
@@ -102,6 +103,7 @@ model Location {
   
   shifts      Shift[]
   managers    User[]
+  shiftSeries ShiftSeries[]
 
   @@index([companyId])
 }
@@ -123,10 +125,14 @@ model Shift {
   pharmacist   PharmacistProfile? @relation(fields: [pharmacistId], references: [id], onDelete: SetNull)
   pharmacistId String?
 
+  seriesId String?
+  series   ShiftSeries? @relation(fields: [seriesId], references: [id])
+
   @@index([companyId])
   @@index([locationId])
   @@index([pharmacistId])
   @@index([published])
+  @@index([seriesId])
 }
 
 enum ShiftStatus {
@@ -175,5 +181,37 @@ enum FileType {
   resume
   logo
   document
+}
+
+model ShiftSeries {
+  id          String   @id @default(uuid())
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId   String
+  location    Location?         @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  locationId  String?
+  title       String
+  description String?
+  payRate      Float
+
+  // Time-of-day reference
+  startMinutes Int        // e.g. 540 = 9:00 AM
+  endMinutes   Int
+
+  repeatType  RepeatType
+  daysOfWeek  Int[]       // Only for WEEKLY // 0 = Sunday, 1 = Monday ...
+  startDate   DateTime
+  endDate     DateTime
+
+  excludeWeekends Boolean @default(false)
+  published    Boolean           @default(false)
+  createdAt    DateTime          @default(now())
+
+  shifts Shift[]
+}
+
+enum RepeatType {
+  NONE
+  DAILY
+  WEEKLY
 }
 
