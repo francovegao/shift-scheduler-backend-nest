@@ -35,11 +35,15 @@ export class ShiftSeriesService {
 
         if( ( isDaily || shouldIncludeDay) && !isExcludedWeekend){
           //Handle overnight shifts
-          const shiftStart = new Date(current);
-          let shiftEnd = new Date(current);
+          const shiftStart = buildLocalDate(current, createShiftSeryDto.startMinutes);
+          let shiftEndBase = current;
+
           if (createShiftSeryDto.endMinutes < createShiftSeryDto.startMinutes) {
-            shiftEnd.setDate(shiftEnd.getDate() + 1);
+            shiftEndBase = new Date(current);
+            shiftEndBase.setDate(shiftEndBase.getDate() + 1);
           }
+
+          const shiftEnd = buildLocalDate(shiftEndBase, createShiftSeryDto.endMinutes);
 
             shifts.push({
               companyId: createShiftSeryDto.companyId,
@@ -47,8 +51,8 @@ export class ShiftSeriesService {
               title: createShiftSeryDto.title,
               description: createShiftSeryDto.description ?? null,
               payRate: createShiftSeryDto.payRate,
-              startTime: setTime(shiftStart, createShiftSeryDto.startMinutes),
-              endTime: setTime(shiftEnd, createShiftSeryDto.endMinutes),
+              startTime: shiftStart, //setTime(shiftStart, createShiftSeryDto.startMinutes),
+              endTime: shiftEnd, //setTime(shiftEnd, createShiftSeryDto.endMinutes),
               published: createShiftSeryDto.published,
               seriesId: series.id,
               status: createShiftSeryDto.status ?? 'open',
@@ -84,16 +88,23 @@ export class ShiftSeriesService {
     return `This action removes a #${id} shiftSery`;
   }
 }
-function setTime(date: Date, totalMinutes: number): Date {
+
+function buildLocalDate(baseDate: Date, totalMinutes: number,): Date {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  date.setHours(hours, minutes, 0, 0);
 
-  return date;
+  return new Date(
+    baseDate.getFullYear(),
+    baseDate.getMonth(),
+    baseDate.getDate(),
+    hours,
+    minutes,
+    0,
+    0,
+  );
 }
 
 function parseLocalDate(dateStr: string): Date {
-  console.log(dateStr)
   const dateOnly = dateStr.split("T")[0];
   const [year, month, day] = dateOnly.split("-").map(Number);
   return new Date(year, month - 1, day);
