@@ -984,30 +984,5 @@ function getWeekRange(
   return { start, end };
 }
 
-function toLocalDateKey(date: Date, timeZone: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date); // YYYY-MM-DD
-}
-
-function startOfLocalDay(date: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  })
-    .formatToParts(date)
-    .reduce((acc, p) => {
-      acc[p.type] = p.value;
-      return acc;
-    }, {} as any);
-
-  return new Date(`${parts.year}-${parts.month}-${parts.day}T00:00:00`);
-}
-
 
 

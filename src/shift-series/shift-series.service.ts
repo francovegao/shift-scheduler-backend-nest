@@ -110,21 +110,6 @@ export class ShiftSeriesService {
   }
 }
 
-function buildLocalDate(baseDate: Date, totalMinutes: number,): Date {
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  return new Date(
-    baseDate.getFullYear(),
-    baseDate.getMonth(),
-    baseDate.getDate(),
-    hours,
-    minutes,
-    0,
-    0,
-  );
-}
-
 function buildUtcFromLocal(
   dateStr: string,     
   totalMinutes: number,    
