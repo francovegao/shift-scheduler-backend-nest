@@ -3,6 +3,7 @@ import { CreateShiftSeryDto } from './dto/create-shift-sery.dto';
 import { UpdateShiftSeryDto } from './dto/update-shift-sery.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma } from 'generated/prisma';
+import { fromZonedTime } from 'date-fns-tz';
 
 @Injectable()
 export class ShiftSeriesService {
@@ -16,6 +17,12 @@ export class ShiftSeriesService {
           data: shiftSeriesData, 
         });
       const shifts: Prisma.ShiftCreateManyInput[] = [];
+
+      //find company timezone
+      const company = await this.prisma.company.findUnique({
+          where: { id: createShiftSeryDto.companyId },
+        });
+      const timezone = company?.timezone || "America/Edmonton";
 
       let current = parseLocalDate(createShiftSeryDto.startDate);
       const endDate = parseLocalDate(createShiftSeryDto.endDate);
@@ -34,8 +41,15 @@ export class ShiftSeriesService {
         const isExcludedWeekend = createShiftSeryDto.excludeWeekends && isWeekend;
 
         if( ( isDaily || shouldIncludeDay) && !isExcludedWeekend){
+          const dateOnly = current.toISOString().slice(0, 10);
+
           //Handle overnight shifts
-          const shiftStart = buildLocalDate(current, createShiftSeryDto.startMinutes);
+          const shiftStart = buildUtcFromLocal(
+            dateOnly,
+            createShiftSeryDto.startMinutes,
+            timezone
+          );
+          //const shiftStart = buildLocalDate(current, createShiftSeryDto.startMinutes);
           let shiftEndBase = current;
 
           if (createShiftSeryDto.endMinutes < createShiftSeryDto.startMinutes) {
@@ -43,7 +57,14 @@ export class ShiftSeriesService {
             shiftEndBase.setDate(shiftEndBase.getDate() + 1);
           }
 
-          const shiftEnd = buildLocalDate(shiftEndBase, createShiftSeryDto.endMinutes);
+          const endDateString = shiftEndBase.toISOString().slice(0, 10);
+          const shiftEnd = buildUtcFromLocal(
+            endDateString,
+            createShiftSeryDto.endMinutes,
+            timezone
+          );
+
+          //const shiftEnd = buildLocalDate(shiftEndBase, createShiftSeryDto.endMinutes);
 
             shifts.push({
               companyId: createShiftSeryDto.companyId,
@@ -51,8 +72,8 @@ export class ShiftSeriesService {
               title: createShiftSeryDto.title,
               description: createShiftSeryDto.description ?? null,
               payRate: createShiftSeryDto.payRate,
-              startTime: shiftStart, //setTime(shiftStart, createShiftSeryDto.startMinutes),
-              endTime: shiftEnd, //setTime(shiftEnd, createShiftSeryDto.endMinutes),
+              startTime: shiftStart,
+              endTime: shiftEnd, 
               published: createShiftSeryDto.published,
               seriesId: series.id,
               status: createShiftSeryDto.status ?? 'open',
@@ -102,6 +123,19 @@ function buildLocalDate(baseDate: Date, totalMinutes: number,): Date {
     0,
     0,
   );
+}
+
+function buildUtcFromLocal(
+  dateStr: string,     
+  totalMinutes: number,    
+  timezone: string          
+): Date {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  const localDateTime = `${dateStr}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
+
+  return fromZonedTime(localDateTime, timezone);
 }
 
 function parseLocalDate(dateStr: string): Date {

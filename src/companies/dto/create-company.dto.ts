@@ -56,5 +56,9 @@ export class CreateCompanyDto {
   @IsString()
   @ApiProperty({ required: false })
   postalCode?: string;
+
+  @IsString()
+  @ApiProperty({ default: "America/Edmonton" })
+  timezone?: string = "America/Edmonton";
 }
 

@@ -47,4 +47,8 @@ export class CreateLocationDto {
   @IsNotEmpty()
   @ApiProperty()
   companyId: string
+
+  @IsString()
+  @ApiProperty({ default: "America/Edmonton" })
+  timezone?: string = "America/Edmonton";
 }

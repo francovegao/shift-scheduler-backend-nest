@@ -5,14 +5,31 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AppEvents } from 'src/events/app-events';
+import { fromZonedTime } from 'date-fns-tz';
 
 @Injectable()
 export class ShiftsService {
   constructor(private prisma: PrismaService, private eventEmitter: EventEmitter2) {}
 
   //CRUD operations
-  create(createShiftDto: CreateShiftDto) {
-    //return 'This action adds a new shift';
+  async create(createShiftDto: CreateShiftDto) {
+
+    //find company timezone
+    const company = await this.prisma.company.findUnique({
+        where: { id: createShiftDto.companyId },
+      });
+
+    const timezone = company?.timezone || "America/Edmonton";
+
+    const startTime = fromZonedTime(createShiftDto.startTime, timezone)
+    const endTime = fromZonedTime(createShiftDto.endTime, timezone)
+
+    createShiftDto = {
+      ...createShiftDto,
+      startTime: startTime,
+      endTime: endTime,
+    }
+
     return this.prisma.shift.create({ data: createShiftDto });
   }
 

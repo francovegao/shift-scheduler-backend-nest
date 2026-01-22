@@ -44,6 +44,9 @@ export class CompanyEntity implements Company {
   @ApiProperty({ required: false, nullable: true })
   contactEmail: string | null;
 
+  @ApiProperty({ required: false})
+  timezone: string;
+
   @ApiProperty()
   createdAt: Date;
 }

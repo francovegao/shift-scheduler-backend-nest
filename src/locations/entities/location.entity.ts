@@ -33,6 +33,9 @@ export class LocationEntity implements Location {
   @ApiProperty({ required: false, nullable: true })
   postalCode: string | null;
 
+  @ApiProperty({ required: false})
+  timezone: string;
+
   @ApiProperty()
   companyId: string;
 }

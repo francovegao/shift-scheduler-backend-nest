@@ -1,0 +1,15 @@
+export const PROVINCE_TIMEZONE_MAP: Record<string, string> = {
+  AB: "America/Edmonton",
+  BC: "America/Vancouver",
+  MB: "America/Winnipeg",
+  NB: "America/Moncton",
+  NL: "America/St_Johns",
+  NS: "America/Halifax",
+  ON: "America/Toronto",
+  PE: "America/Halifax",
+  QC: "America/Toronto",
+  SK: "America/Regina",   
+  YT: "America/Whitehorse",
+  NT: "America/Yellowknife",
+  NU: "America/Iqaluit",
+};

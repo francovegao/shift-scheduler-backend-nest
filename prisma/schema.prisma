@@ -48,6 +48,7 @@ model Company {
   contactName String?
   contactPhone String?
   contactEmail String?
+  timezone     String @default("America/Edmonton")
   createdAt   DateTime @default(now())
 
   managers  User[]
@@ -98,6 +99,7 @@ model Location {
   city        String?
   province    String?
   postalCode  String?
+  timezone    String @default("America/Edmonton")
   company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   companyId   String
   

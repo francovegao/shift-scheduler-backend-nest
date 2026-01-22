@@ -3,6 +3,7 @@ import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
+import { PROVINCE_TIMEZONE_MAP } from 'src/common/timezone-map';
 
 @Injectable()
 export class CompaniesService {
@@ -10,8 +11,15 @@ export class CompaniesService {
 
   //CRUD operations
   create(createCompanyDto: CreateCompanyDto) {
-    //return 'This action adds a new company';
-    return this.prisma.company.create({ data: createCompanyDto });
+
+    const timezone = getTimezoneFromProvince(createCompanyDto.province ?? "AB");
+  
+    return this.prisma.company.create({
+        data:{
+          ...createCompanyDto,
+          timezone,
+    },
+   });
   }
 
   async findAll(
@@ -186,8 +194,13 @@ export class CompaniesService {
   }
 
   update(id: string, updateCompanyDto: UpdateCompanyDto) {
-    //return `This action updates a #${id} company`;
-    return this.prisma.company.update({ where: { id }, data: updateCompanyDto });
+    const data: any = { ...updateCompanyDto };
+    
+    if (updateCompanyDto.province) {
+      data.timezone = getTimezoneFromProvince(updateCompanyDto.province);
+    }
+
+    return this.prisma.company.update({ where: { id }, data: data });
   }
 
   remove(id: string) {
@@ -195,3 +208,7 @@ export class CompaniesService {
     return this.prisma.company.delete({ where: { id } });
   }
 }
+function getTimezoneFromProvince(province: string) {
+  return PROVINCE_TIMEZONE_MAP[province] ?? "America/Edmonton";
+}
+
