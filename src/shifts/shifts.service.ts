@@ -904,6 +904,47 @@ async findShiftsByDate(
     return this.prisma.shift.delete({ where: { id } });
   }
 
+    async takeShift(
+    id: string,
+    updateShiftDto: UpdateShiftDto,
+  ) {
+
+    const shift = await this.prisma.shift.findUnique({
+      where: { id },
+    });
+
+    if (!shift) {
+      throw new NotFoundException('Shift not found');
+    }
+
+    if (!shift.published) {
+      throw new ForbiddenException('Shift is not published');
+    }
+
+    if (shift.status !== 'open') {
+      throw new ForbiddenException('Shift is no longer available');
+    }
+
+    const updatedShift = await this.prisma.shift.update({
+      where: { id },
+      data: {
+        status: 'taken',
+        pharmacistId: updateShiftDto.pharmacistId,
+      },
+      include: {
+        company: {
+          select: { name: true },
+        },
+      },
+    });
+
+    this.eventEmitter.emit(AppEvents.SHIFT_TAKEN, {
+      shift: updatedShift,
+    });
+
+    return updatedShift;
+  }
+
   //Auto complete shifts function for nightly job
   async autoCompleteShifts() {
     const cutoff = new Date();
