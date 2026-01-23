@@ -844,7 +844,7 @@ async findShiftsByDate(
     const isTakingShift =
       updateShiftDto.status === 'taken';
 
-    if (isTakingShift && !existingShift.published) {
+    if (isTakingShift && !updateShiftDto.published) {
       throw new ForbiddenException(
         'This shift is not published yet and cannot be taken'
       );
