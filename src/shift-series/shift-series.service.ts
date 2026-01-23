@@ -49,7 +49,6 @@ export class ShiftSeriesService {
             createShiftSeryDto.startMinutes,
             timezone
           );
-          //const shiftStart = buildLocalDate(current, createShiftSeryDto.startMinutes);
           let shiftEndBase = current;
 
           if (createShiftSeryDto.endMinutes < createShiftSeryDto.startMinutes) {
@@ -63,8 +62,6 @@ export class ShiftSeriesService {
             createShiftSeryDto.endMinutes,
             timezone
           );
-
-          //const shiftEnd = buildLocalDate(shiftEndBase, createShiftSeryDto.endMinutes);
 
             shifts.push({
               companyId: createShiftSeryDto.companyId,

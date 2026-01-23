@@ -23,15 +23,15 @@ export class CreateShiftDto {
   @ApiProperty({ required: false })
   description?: string;
 
-  @IsDateString()
+  @IsString()
   @IsNotEmpty()
   @ApiProperty()
-  startTime: Date;
+  startTime: string;
 
-  @IsDateString()
+  @IsString()
   @IsNotEmpty()
   @ApiProperty()
-  endTime: Date;
+  endTime: string;
 
   @IsNumber()
   @IsNotEmpty()

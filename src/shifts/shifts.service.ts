@@ -13,21 +13,21 @@ export class ShiftsService {
 
   //CRUD operations
   async create(createShiftDto: CreateShiftDto) {
-
     //find company timezone
     const company = await this.prisma.company.findUnique({
         where: { id: createShiftDto.companyId },
+        select: { timezone: true },
       });
 
-    const timezone = company?.timezone || "America/Edmonton";
+    const timezone = company?.timezone ?? "America/Edmonton";
 
-    const startTime = fromZonedTime(createShiftDto.startTime, timezone)
-    const endTime = fromZonedTime(createShiftDto.endTime, timezone)
+    const startUtc = fromZonedTime(createShiftDto.startTime, timezone);
+    const endUtc = fromZonedTime(createShiftDto.endTime, timezone);
 
     createShiftDto = {
       ...createShiftDto,
-      startTime: startTime,
-      endTime: endTime,
+      startTime: startUtc.toISOString(),
+      endTime: endUtc.toISOString(),
     }
 
     return this.prisma.shift.create({ data: createShiftDto });
@@ -850,10 +850,24 @@ async findShiftsByDate(
       );
     }
 
+    const company = await this.prisma.company.findUnique({
+      where: { id: updateShiftDto.companyId },
+      select: { timezone: true },
+    });
+
+    const timezone = company?.timezone ?? "America/Edmonton";
+
+    const startUtc = fromZonedTime(updateShiftDto.startTime ?? existingShift.startTime, timezone);
+    const endUtc = fromZonedTime(updateShiftDto.endTime ?? existingShift.endTime, timezone);
+
     //update shift
     const updatedShift = await this.prisma.shift.update({
       where: { id },
-      data: updateShiftDto,
+      data: {
+        ...updateShiftDto,
+        startTime: startUtc,
+        endTime: endUtc,
+      },
       include: {
         company: {
           select: {
