@@ -23,6 +23,7 @@ steps:
         '--set-secrets', 'FIREBASE_PRIVATE_KEY=projects/353576862326/secrets/FIREBASE_PRIVATE_KEY:latest',
         '--set-secrets', 'FIREBASE_CLIENT_EMAIL=projects/353576862326/secrets/FIREBASE_CLIENT_EMAIL:latest',
         '--set-secrets', 'FIREBASE_PROJECT_ID=projects/353576862326/secrets/FIREBASE_PROJECT_ID:latest',
+        '--set-secrets', 'RESEND_API_KEY=projects/353576862326/secrets/RESEND_API_KEY:latest',
         #'--set-env-vars', 'PORT=8080'
       ]
 
@@ -39,6 +40,7 @@ steps:
         '--set-secrets', 'FIREBASE_PRIVATE_KEY=projects/353576862326/secrets/FIREBASE_PRIVATE_KEY:latest',
         '--set-secrets', 'FIREBASE_CLIENT_EMAIL=projects/353576862326/secrets/FIREBASE_CLIENT_EMAIL:latest',
         '--set-secrets', 'FIREBASE_PROJECT_ID=projects/353576862326/secrets/FIREBASE_PROJECT_ID:latest',
+        '--set-secrets', 'RESEND_API_KEY=projects/353576862326/secrets/RESEND_API_KEY:latest',
         '--command', 'npm',
         '--args', 'run,start:job'
       ]

@@ -60,7 +60,7 @@ export class EmailService {
         }
     }
 
-    async emailManagersShiftTaken(to: string, shift: ShiftWithCompany, pharmacistName: string ) {
+    async emailManagersShiftTaken(managersEmails: string[], shift: ShiftWithCompany, pharmacistName: string ) {
         const templateName = 'notify_shift_taken';
         const subject = `New Shift Assigned at ${shift.company.name}`;
 
@@ -82,25 +82,51 @@ export class EmailService {
                               Shift Happens Team</p>`;
 
         try {
-            const { data, error } = await this.resend.emails.send({
+            const batchEmails = managersEmails.map(email => ({
                 from: 'Shift Happens <no-reply@shifthappens.curisrx.ca>',
-                to: [to],
+                to: [email],
                 subject: subject,
-                html: htmlContent,
-            });
+                html: htmlContent
+            }));
+
+            const { data, error } = await this.resend.batch.send(batchEmails);
+
+            // const { data, error } = await this.resend.batch.send({
+            //     from: 'Shift Happens <no-reply@shifthappens.curisrx.ca>',
+            //     to: [to],
+            //     subject: subject,
+            //     html: htmlContent,
+            // });
 
             if (error) throw new Error(JSON.stringify(error));
 
-            await this.logEmail({ 
-                to, subject, status: 'sent', templateName, providerMessageId: data.id 
-            });
+             await Promise.all(
+                managersEmails.map((to, index) => 
+                    this.logEmail({ 
+                        to, 
+                        subject, 
+                        status: 'sent', 
+                        templateName, 
+                        providerMessageId: data?.data[index]?.id 
+                    })
+                )
+            );
+            
 
             this.logger.log('Email sent successfully');
             return data;
         } catch (error) {
-            await this.logEmail({ 
-                to, subject, status: 'failed', templateName, errorMessage: error.message 
-            });
+            await Promise.all(
+                managersEmails.map(to => 
+                    this.logEmail({ 
+                        to, 
+                        subject, 
+                        status: 'failed', 
+                        templateName, 
+                        errorMessage: error.message 
+                    })
+                )
+            );
             this.logger.error('Unexpected error sending email', error.stack);
             throw error;
         }

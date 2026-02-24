@@ -1052,8 +1052,25 @@ async findShiftsByDate(
     if(updatedShift?.pharmacist?.user.email) {
       this.emailService.emailPharmacistShiftTaken(updatedShift?.pharmacist?.user.email, updatedShift)
     }
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        OR: [
+          { companyId: updatedShift.companyId },
+          { role: 'admin' },
+          { allowedCompanies:{
+            some: { id: updatedShift.companyId }
+          }},
+        ]
+      }, 
+      select: { email: true }
+    });
     
-    // this.emailService.emailManagersShiftTaken("oliver.franco@createcompounding.ca", updatedShift, pharmacistName)
+    const managersEmails = [...new Set(users.map(u => u.email))];
+
+    if(managersEmails.length>0){
+      this.emailService.emailManagersShiftTaken(managersEmails, updatedShift, pharmacistName)
+    };
 
     return updatedShift;
   }
