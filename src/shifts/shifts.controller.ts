@@ -7,6 +7,7 @@ import { ShiftEntity } from './entities/shift.entity';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 import { CurrentUser } from 'src/auth/current-user.decorator';
+import { NotifyUsersDto } from 'src/email/dto/notify-users.dto';
 
 @Controller('shifts')
 @ApiTags('Shifts')
@@ -183,4 +184,16 @@ export class ShiftsController {
   remove(@Param('id') id: string) {
     return this.shiftsService.remove(id);
   }
+
+  @Post(':id/notify-pharmacists')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: String })
+  notifyPharmacists(
+    @Param('id') id: string,
+    @Body() notifyUsersDto: NotifyUsersDto,
+  ) {
+    return this.shiftsService.notifyPharmacists(id, notifyUsersDto);
+  }
+
 }

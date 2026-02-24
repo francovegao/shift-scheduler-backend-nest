@@ -5,12 +5,14 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { FirebaseService } from 'src/firebase/firebase.service';
 import { CreateFirebaseUserDto } from './dto/create-firebase-user.dto';
+import { EmailService } from 'src/email/email.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     private prisma: PrismaService,
-    private firebaseService: FirebaseService){}
+    private firebaseService: FirebaseService,
+    private emailService: EmailService){}
 
   //CRUD operations
   create(createUserDto: CreateUserDto) {
@@ -18,7 +20,12 @@ export class UsersService {
   }
 
   async createFirebaseUser(createFirebaseUserDto: CreateFirebaseUserDto){
-    return this.firebaseService.createFirebaseUser(createFirebaseUserDto.email, createFirebaseUserDto.password);
+    const newUser = await this.firebaseService.createFirebaseUser(createFirebaseUserDto.email, createFirebaseUserDto.password);
+
+    if(newUser.email)
+      this.emailService.emailNewUser(newUser.email, newUser.email, createFirebaseUserDto.password);
+
+    return newUser;
   }
 
   async findAll(

@@ -12,12 +12,13 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { HealthModule } from './health/health.module';
 import { ShiftSeriesModule } from './shift-series/shift-series.module';
+import { EmailService } from './email/email.service';
 
 @Module({
   imports: [PrismaModule, UsersModule, CompaniesModule, 
     ShiftsModule, LocationsModule, PharmacistProfilesModule, 
     AuthModule, NotificationsModule, EventEmitterModule.forRoot(), HealthModule, ShiftSeriesModule],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, EmailService],
 })
 export class AppModule {}

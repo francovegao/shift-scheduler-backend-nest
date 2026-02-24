@@ -6,10 +6,15 @@ import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AppEvents } from 'src/events/app-events';
 import { fromZonedTime } from 'date-fns-tz';
+import { EmailService } from 'src/email/email.service';
+import { NotifyUsersDto } from 'src/email/dto/notify-users.dto';
 
 @Injectable()
 export class ShiftsService {
-  constructor(private prisma: PrismaService, private eventEmitter: EventEmitter2) {}
+  constructor(
+    private prisma: PrismaService, 
+    private eventEmitter: EventEmitter2,
+    private emailService: EmailService) {}
 
   //CRUD operations
   async create(createShiftDto: CreateShiftDto) {
@@ -245,9 +250,16 @@ export class ShiftsService {
     }
 
     //Status Filter
-    where.AND.push({
-      status: selectedStatus ? { equals: selectedStatus } : undefined,
-    });
+    if(selectedStatus==="openAndTaken"){
+      where.AND.push({
+        status:  { in: ["open", "taken"] },
+      });
+    }else if(selectedStatus) {
+      where.AND.push({
+        status: { equals: selectedStatus },
+      });
+    }
+
 
     //Published Filter
     const isPublished = published === 'true' ? true : published === 'false' ? false : undefined;
@@ -835,6 +847,23 @@ async findShiftsByDate(
    //find shift before update
    const existingShift = await this.prisma.shift.findUnique({
       where: { id },
+      include: {
+        company: {
+          select: {
+            name: true,
+            timezone: true,
+          }
+        },
+        pharmacist: {
+          include: {
+            user: {
+              select: {
+                email: true,
+              },
+            },
+          },
+        },
+      }
     });
 
     if (!existingShift) {
@@ -872,9 +901,19 @@ async findShiftsByDate(
         company: {
           select: {
             name: true,
+            timezone: true,
           }
-        }
-      }
+        },
+        pharmacist: {
+          include: {
+            user: {
+              select: {
+                email: true,
+              },
+            },
+          },
+        },
+      },
     })
 
     //compare old vs new shift
@@ -896,15 +935,60 @@ async findShiftsByDate(
       }
     }
 
+    //Notify pharmacist if shift times were updated
+    const oldStartTime = existingShift.startTime;
+    const newStartTime = updatedShift.startTime;
+    const oldEndTime = existingShift.endTime;
+    const newEndTime = updatedShift.endTime;
+
+    if( oldStartTime.getTime() !== newStartTime.getTime() || oldEndTime.getTime() !== newEndTime.getTime()){
+      if(updatedShift?.pharmacist?.user.email) 
+        this.emailService.emailPharmacistShiftUpdated(updatedShift?.pharmacist?.user.email, updatedShift)
+    }
+
+    //Notify pharmacist if pharmacistId was changed 
+    const oldPharmacistId = existingShift.pharmacistId;
+    const newPharmacistId = updatedShift.pharmacistId;
+
+    if(oldPharmacistId !== newPharmacistId){
+      if(existingShift?.pharmacist?.user.email) 
+        this.emailService.emailPharmacistShiftCancelled(existingShift?.pharmacist?.user.email, existingShift)
+    }
+
     return updatedShift;
   }
 
-  remove(id: string) {
-    //return `This action removes a #${id} shift`;
-    return this.prisma.shift.delete({ where: { id } });
+  async remove(id: string) {
+    const removedShift = await this.prisma.shift.delete({ 
+      where: { id },
+       include: {
+        company: {
+          select: {
+            name: true,
+            timezone: true,
+          }
+        },
+        pharmacist: {
+          include: {
+            user: {
+              select: {
+                email: true,
+              },
+            },
+          },
+        },
+      }, 
+    });
+
+    if(removedShift.status === "taken" && removedShift.pharmacistId){
+      if(removedShift?.pharmacist?.user.email) 
+        this.emailService.emailPharmacistShiftCancelled(removedShift?.pharmacist?.user.email, removedShift)
+    }
+    
+    return removedShift;
   }
 
-    async takeShift(
+  async takeShift(
     id: string,
     updateShiftDto: UpdateShiftDto,
   ) {
@@ -933,16 +1017,95 @@ async findShiftsByDate(
       },
       include: {
         company: {
-          select: { name: true },
+          select: {
+            name: true,
+            timezone: true,
+          }
+        },
+        pharmacist: {
+          include: {
+            user: {
+              select: {
+                email: true,
+              },
+            },
+          },
         },
       },
     });
 
+    //emit event for notifications
     this.eventEmitter.emit(AppEvents.SHIFT_TAKEN, {
       shift: updatedShift,
     });
+    
+    //Send emails
+    const pharmacist = await this.prisma.pharmacistProfile.findUnique({
+      where: { id: updateShiftDto.pharmacistId },
+      include: {
+        user: true
+      },
+    });
+
+    const pharmacistName = `${pharmacist?.user.firstName} ${pharmacist?.user.lastName}`
+
+    if(updatedShift?.pharmacist?.user.email) {
+      this.emailService.emailPharmacistShiftTaken(updatedShift?.pharmacist?.user.email, updatedShift)
+    }
+    
+    // this.emailService.emailManagersShiftTaken("oliver.franco@createcompounding.ca", updatedShift, pharmacistName)
 
     return updatedShift;
+  }
+
+  async notifyPharmacists(
+    id: string,
+    notifyUsersDto: NotifyUsersDto,
+  ) {
+
+    const shift = await this.prisma.shift.findUnique({
+      where: { id },
+      include: {
+        company: {
+          select: {
+            name: true,
+            timezone: true,
+          }
+        }
+      },
+    });
+
+    if (!shift) {
+      throw new NotFoundException('Shift not found');
+    }
+
+    if (!shift.published) {
+      throw new ForbiddenException('Shift is not published');
+    }
+
+    if (shift.status !== 'open') {
+      throw new ForbiddenException('Shift is no longer available');
+    }
+    
+    //Send emails
+    const pharmacists = await this.prisma.pharmacistProfile.findMany({
+      where: { 
+        id: {
+          in: notifyUsersDto.userIds,
+        },
+      },
+      include: {
+        user: true
+      },
+    });
+
+    await Promise.all(
+      pharmacists.map(pharmacist =>
+        this.emailService.emailPharmacistShiftOpen(pharmacist.user.email, shift)
+      ),
+    );
+    
+    return { success: true };
   }
 
   //Auto complete shifts function for nightly job

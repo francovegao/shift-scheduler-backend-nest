@@ -28,6 +28,7 @@ model User {
   pharmacistProfile PharmacistProfile?
   notifications     Notification[]
   files             File[]
+  emailLogs         EmailLog[]
 
   @@index([companyId])
   @@index([locationId])
@@ -217,3 +218,21 @@ enum RepeatType {
   WEEKLY
 }
 
+model EmailLog {
+  id                 String   @id @default(uuid())
+  recipientEmail     String   
+  user               User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId             String?
+  subject            String
+  templateName       String?
+  status             EmailStatus
+  providerMessageId  String?
+  errorMessage       String? 
+  metadata           Json?    @db.JsonB
+  createdAt          DateTime @default(now()) 
+}
+
+enum EmailStatus {
+  sent
+  failed
+}
