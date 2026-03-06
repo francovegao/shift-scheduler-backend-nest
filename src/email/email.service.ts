@@ -4,7 +4,11 @@ import { Resend } from 'resend';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PrismaService } from 'src/prisma/prisma.service';
 
-type ShiftWithCompany = Shift & { company: {name: string, timezone: string} };
+type ShiftWithCompany = Shift & { company: {name: string, timezone: string }};
+type ShiftWithCompanyAddress = Shift & { company: {name: string, timezone: string, 
+                        address: string | null, 
+                        city: string | null, 
+                        province: string | null } };
 type ShiftWithPharmacist = Shift & { 
                             company: { 
                                 name: string; 
@@ -30,7 +34,7 @@ export class EmailService {
         this.resend = new Resend(process.env.RESEND_API_KEY);
     }
 
-    async emailPharmacistShiftTaken(to: string, shift: ShiftWithCompany ) {
+    async emailPharmacistShiftTaken(to: string, shift: ShiftWithCompanyAddress ) {
         const templateName = 'shift_taken';
         const subject = `New Shift Assigned at ${shift.company.name}`;
 
@@ -45,6 +49,9 @@ export class EmailService {
                               To: <strong>${endTime}</strong><br>
                               Notes: ${shift.title}<br>
                               ${shift.description}</p>
+                              <a href="${generateGCalLink(shift)}">
+                              Click here to add shift 
+                              to Google Calendar</a>
                               <p>To view all the details go to 
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
                               <p>Thank you,<br>
@@ -199,7 +206,7 @@ export class EmailService {
     }
 
     //Send this email when an assigned shift start or end times are updated
-    async emailPharmacistShiftUpdated(to: string, shift: ShiftWithCompany ) {
+    async emailPharmacistShiftUpdated(to: string, shift: ShiftWithCompanyAddress ) {
         const templateName = 'taken_shift_updated';
         const subject = `Shift Updated at ${shift.company.name}`;
 
@@ -214,6 +221,9 @@ export class EmailService {
                               To: <strong>${endTime}</strong><br>
                               Notes: ${shift.title}<br>
                               ${shift.description}</p>
+                              <a href="${generateGCalLink(shift)}">
+                              Click here to add shift 
+                              to Google Calendar</a>
                               <p>To view all the details go to 
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
                               <p>Thank you,<br>
@@ -414,3 +424,37 @@ function formatDate(stringDate, timeZone){
 function formatTime(stringDate, timeZone){
     return formatInTimeZone(stringDate, timeZone, 'HH:mm')
 }
+
+function generateGCalLink(shift: ShiftWithCompanyAddress) {
+    const baseUrl = "https://calendar.google.com/calendar/render?action=TEMPLATE";
+
+    const start =  formatInTimeZone(shift.startTime, shift.company?.timezone, "yyyyMMdd'T'HHmmssXXX");
+    const end = formatInTimeZone(shift.endTime, shift.company?.timezone, "yyyyMMdd'T'HHmmssXXX");
+    const appLink = `https://shifthappens.vercel.app/`;
+    const eventDetails = `Details: ${shift.title || ""}: ${shift.description || ""} \n\n<a href="${appLink}">Click here to view all details</a>`;
+    
+    const params = new URLSearchParams({
+      text: `Shift at ${shift.company?.name}`,
+      dates: `${start}/${end}`,
+      details: eventDetails,
+      location: getFullAddress(shift.company?.address, shift.company?.city, shift.company?.province, null) || "",
+    });
+
+    return `${baseUrl}&${params.toString()}`;
+}
+
+function getFullAddress(
+  address: string | null | undefined,
+  city: string | null | undefined,
+  province: string | null | undefined,
+  postalCode: string | null | undefined, 
+) {
+
+  if (!address && !city && !province && !postalCode) {
+    return "No address info";
+  }
+
+  const parts = [address, city, province, postalCode].filter(Boolean);
+  return parts.length > 0 ? parts.join(', ') : "No address info";
+};
+

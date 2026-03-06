@@ -903,6 +903,9 @@ async findShiftsByDate(
           select: {
             name: true,
             timezone: true,
+            address: true, 
+            city: true,
+            province: true,
           }
         },
         pharmacist: {
@@ -1021,6 +1024,9 @@ async findShiftsByDate(
           select: {
             name: true,
             timezone: true,
+            address: true,
+            city: true,
+            province: true,
           }
         },
         pharmacist: {
