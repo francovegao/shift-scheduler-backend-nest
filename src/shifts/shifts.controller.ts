@@ -8,6 +8,7 @@ import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 import { CurrentUser } from 'src/auth/current-user.decorator';
 import { NotifyUsersDto } from 'src/email/dto/notify-users.dto';
+import { RequestShiftCancelDto } from 'src/email/dto/request-cancellation.dto';
 
 @Controller('shifts')
 @ApiTags('Shifts')
@@ -194,6 +195,17 @@ export class ShiftsController {
     @Body() notifyUsersDto: NotifyUsersDto,
   ) {
     return this.shiftsService.notifyPharmacists(id, notifyUsersDto);
+  }
+
+  @Post(':id/request-cancellation')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: String })
+  requestCancellation(
+    @Param('id') id: string,
+    @Body() requestShiftCancelDto: RequestShiftCancelDto,
+  ) {
+    return this.shiftsService.requestCancellation(id, requestShiftCancelDto);
   }
 
 }

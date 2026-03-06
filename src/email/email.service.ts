@@ -5,6 +5,21 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 type ShiftWithCompany = Shift & { company: {name: string, timezone: string} };
+type ShiftWithPharmacist = Shift & { 
+                            company: { 
+                                name: string; 
+                                timezone: string;
+                                contactName: string | null; 
+                                contactEmail: string | null; 
+                            }; 
+                            pharmacist: { 
+                                user: { 
+                                email: string; 
+                                firstName: string | null; 
+                                lastName: string | null; 
+                                }; 
+                            } | null; 
+                            };
 
 @Injectable()
 export class EmailService {
@@ -224,6 +239,63 @@ export class EmailService {
             await this.logEmail({ 
                 to, subject, status: 'failed', templateName, errorMessage: error.message 
             });
+            this.logger.error('Unexpected error sending email', error.stack);
+            throw error;
+        }
+    }
+
+    async emailRequestShiftCancellation(to: string, shift: ShiftWithPharmacist, cancellationReason: string ) {
+        const templateName = 'request_shift_cancellation';
+        const subject = `Request to cancel shift at ${shift.company.name}`;
+
+        const shiftDate = formatDate(shift.startTime, shift.company.timezone);
+        const startTime = formatTime(shift.startTime, shift.company.timezone);
+        const endTime = formatTime(shift.endTime, shift.company.timezone);
+
+        const htmlContent = `<p>A pharmacist wants to cancel a shift at at <strong>${shift.company.name}</strong>.</p>
+                              <h3>Shift Information</h3>
+                              <p>Date: <strong>${shiftDate}</strong><br>
+                              From: <strong>${startTime}</strong><br>
+                              To: <strong>${endTime}</strong><br>
+                              Notes: ${shift.title}<br>
+                              ${shift.description}</p>
+                              <h3>Pharmacist Information</h3>
+                              <p>Name: <strong>${shift?.pharmacist?.user.firstName} ${shift?.pharmacist?.user.lastName}</strong><br>
+                              email: <strong>${shift?.pharmacist?.user.email}</strong></p>
+                              <h3>Cancel Reason</h3>
+                              <p>Reason: <strong>${cancellationReason}</strong><br>
+                              <p>To approve this request, please log in to  
+                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a> and
+                              cancel this shift.</p>
+                              <p>Thank you,<br>
+                              Shift Happens Team</p>`;
+
+        try {
+            const { data, error } = await this.resend.emails.send({
+                from: 'Shift Happens <no-reply@shifthappens.curisrx.ca>',
+                to: [to],
+                subject: subject,
+                html: htmlContent,
+            });
+
+            if (error) throw new Error(JSON.stringify(error));
+
+            await this.logEmail({ 
+                to, subject, status: 'sent', templateName, providerMessageId: data.id 
+            });
+            
+            await this.logEmail({ 
+                to, subject, status: 'sent', templateName, providerMessageId: data.id 
+            });
+
+            this.logger.log('Email sent successfully');
+            return data;
+        } catch (error) {
+
+            await this.logEmail({ 
+                to, subject, status: 'failed', templateName, errorMessage: error.message 
+            });
+
             this.logger.error('Unexpected error sending email', error.stack);
             throw error;
         }

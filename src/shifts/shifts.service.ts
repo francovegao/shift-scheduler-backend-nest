@@ -8,6 +8,7 @@ import { AppEvents } from 'src/events/app-events';
 import { fromZonedTime } from 'date-fns-tz';
 import { EmailService } from 'src/email/email.service';
 import { NotifyUsersDto } from 'src/email/dto/notify-users.dto';
+import { RequestShiftCancelDto } from 'src/email/dto/request-cancellation.dto';
 
 @Injectable()
 export class ShiftsService {
@@ -1121,6 +1122,63 @@ async findShiftsByDate(
         this.emailService.emailPharmacistShiftOpen(pharmacist.user.email, shift)
       ),
     );
+    
+    return { success: true };
+  }
+
+  async requestCancellation(
+    id: string,
+    requestShiftCancelDto: RequestShiftCancelDto,
+  ) {
+
+    const shift = await this.prisma.shift.findUnique({
+      where: { 
+        id,
+        pharmacistId: requestShiftCancelDto.pharmacistProfileId,
+       },
+      include: {
+        company: {
+          select: {
+            name: true,
+            timezone: true,
+            contactName: true,
+            contactEmail: true,
+          }
+        },
+        pharmacist: {
+          select: {
+            user: {
+              select: {
+                email: true,
+                firstName: true,
+                lastName: true,
+              }
+            }
+          }
+        }
+      
+      },
+    });
+
+    if (!shift) {
+      throw new NotFoundException('Shift not found');
+    }
+
+    if (!shift.published) {
+      throw new ForbiddenException('Shift is not published');
+    }
+
+    if (shift.status !== 'taken') {
+      throw new ForbiddenException('Shift is no longer available');
+    }
+    
+    //Send emails
+    const contactPersonEmail = shift.company.contactEmail;
+    const cancellationReason= requestShiftCancelDto.cancelReason;
+
+    if(contactPersonEmail && shift.pharmacist){
+      this.emailService.emailRequestShiftCancellation(contactPersonEmail, shift, cancellationReason)
+    }
     
     return { success: true };
   }
