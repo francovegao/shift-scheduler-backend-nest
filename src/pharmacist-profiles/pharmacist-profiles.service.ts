@@ -8,9 +8,23 @@ export class PharmacistProfilesService {
   constructor(private prisma: PrismaService) {}
 
   //CRUD operations
-  create(createPharmacistProfileDto: CreatePharmacistProfileDto) {
-    //return 'This action adds a new pharmacistProfile';
-    return this.prisma.pharmacistProfile.create({ data: createPharmacistProfileDto });
+  async create(createPharmacistProfileDto: CreatePharmacistProfileDto) {
+    const { companyPermissions, ...profileData } = createPharmacistProfileDto;
+
+    return this.prisma.pharmacistProfile.create({
+      data: {
+        ...profileData,
+        companyPermissions: companyPermissions ? {
+          create: companyPermissions.map((permission) => ({
+            companyId: permission.companyId,
+            canViewPayRate: permission.canViewPayRate,
+          })),
+        } : undefined,
+      },
+      include: {
+        companyPermissions: true, 
+      },
+    });
   }
 
   findAll() {
@@ -24,30 +38,36 @@ export class PharmacistProfilesService {
   }
 
  async update(
-  id: string,
-  updatePharmacistProfileDto: UpdatePharmacistProfileDto
-) {
-  const { allowedCompaniesIds, ...profileData } = updatePharmacistProfileDto;
-  
-  // Build the base data
-  const data: any = { ...profileData };
+    id: string,
+    updatePharmacistProfileDto: UpdatePharmacistProfileDto
+  ) {
+    const { companyPermissions, ...profileData } = updatePharmacistProfileDto;
+    
+    return await this.prisma.$transaction(async (tx) => {
+      const updatedProfile = await tx.pharmacistProfile.update({
+        where: { id },
+        data: profileData,
+      });
 
-  // If allowedCompaniesIds is provided, update the relation
-  if (allowedCompaniesIds ) {
-    data.allowedCompanies = {
-      set: allowedCompaniesIds.map((companyId) => ({ id: companyId })),
-    };
+      if (companyPermissions) {
+        await tx.pharmacistCompanyPermission.deleteMany({ where: { pharmacistId: id } });
+        
+        await tx.pharmacistCompanyPermission.createMany({
+          data: companyPermissions.map((item) => ({
+            pharmacistId: id,
+            companyId: item.companyId,
+            canViewPayRate: item.canViewPayRate,
+          })),
+        });
+      }
+
+      // Return the full updated profile with permissions
+      return tx.pharmacistProfile.findUnique({
+        where: { id },
+        include: { companyPermissions: true },
+      });
+    });
   }
-
-  // Perform update
-  const pharmacistProfile = await this.prisma.pharmacistProfile.update({
-    where: { id },
-    data,
-    include: { allowedCompanies: true }, 
-  });
-
-  return pharmacistProfile;
-}
 
   remove(id: string) {
     //return `This action removes a #${id} pharmacistProfile`;

@@ -140,7 +140,7 @@ export class UsersService {
     const include: any = {
       pharmacistProfile: {
         include: {
-          allowedCompanies: true,
+          companyPermissions: true,
         }
       }
     } 
@@ -239,6 +239,7 @@ export class UsersService {
         pharmacistProfile: {
           include: {
             shifts: true,
+            companyPermissions: true,
           },
         },
       },

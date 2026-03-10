@@ -131,6 +131,8 @@ export class ShiftsService {
     // Build dynamic filters
     const where: any = { AND: [] };
 
+    let pharmacist: any = null;
+
     // Role-based scoping
     if (currentUser.role === 'pharmacy_manager') {
 
@@ -152,9 +154,9 @@ export class ShiftsService {
 
     if (currentUser.role === 'relief_pharmacist') {
       // Get pharmacist profile and allowed companies
-      const pharmacist = await this.prisma.pharmacistProfile.findUnique({
+      pharmacist = await this.prisma.pharmacistProfile.findUnique({
         where: { userId: currentUser.id },
-        include: { allowedCompanies: true },
+        include: { companyPermissions: true },
       });
 
       if (!pharmacist) {
@@ -164,7 +166,9 @@ export class ShiftsService {
       if(pharmacist.canViewAllCompanies){
         where.AND.push({ status: 'open', published: true });
       }else{
-        const allowedCompanyIds = pharmacist.allowedCompanies.map((c) => c.id);
+        const allowedCompanyIds = pharmacist.companyPermissions.map(
+          (p) => p.companyId
+        );
 
         where.AND.push({ 
           status: 'open',
@@ -172,7 +176,6 @@ export class ShiftsService {
           companyId: { in: allowedCompanyIds },
           });
       }
-
     }
 
     // External filter
@@ -189,7 +192,6 @@ export class ShiftsService {
       where.AND.push({ id: shiftId });
     }
   
-
     const include: any = {
       company: true,
       location: true,
@@ -318,8 +320,29 @@ export class ShiftsService {
     this.prisma.shift.count({where}),
     ]);
 
+    let finalShifts: any[] = shifts;
+
+    if (currentUser.role === 'relief_pharmacist' && pharmacist) {
+      finalShifts = shifts.map((shift) => {
+        let showPay = true;
+
+        const specificPermission = pharmacist.companyPermissions.find(
+          (p) => p.companyId === shift.companyId
+        );
+
+        if (specificPermission) {
+          showPay = specificPermission.canViewPayRate;
+        }
+
+        return {
+          ...shift,
+          payRate: showPay ? shift.payRate : 'No Data',
+        };
+      });
+    }
+
     const response = {
-      data: shifts,
+      data: finalShifts,
       meta: {
         totalItems: total,
         currentPage: page,
@@ -342,6 +365,17 @@ export class ShiftsService {
   ) {
     const { page = 1 , limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
+
+    let pharmacist: any = null;
+
+    pharmacist = await this.prisma.pharmacistProfile.findUnique({
+      where: { userId: currentUser.id },
+      include: { companyPermissions: true },
+    });
+
+    if (!pharmacist) {
+      throw new Error("Pharmacist profile not found");
+    }
 
     // Build dynamic filters
     const where: any = { AND: [] };
@@ -427,8 +461,27 @@ export class ShiftsService {
     this.prisma.shift.count({where}),
     ]);
 
+    const shiftsWithPermissions = shifts.map((shift) => {
+      let showPay = true;
+
+      if (currentUser.role === 'relief_pharmacist' && pharmacist) {
+        const specificPermission = pharmacist.companyPermissions.find(
+          (p) => p.companyId === shift.companyId
+        );
+        
+        if (specificPermission) {
+          showPay = specificPermission.canViewPayRate;
+        } 
+      }
+
+      return {
+          ...shift,
+        payRate: showPay ? shift.payRate : 'No Data',
+      };
+    });
+
     const response = {
-      data: shifts,
+      data: shiftsWithPermissions,
       meta: {
         totalItems: total,
         currentPage: page,
@@ -481,8 +534,18 @@ export class ShiftsService {
       openWhere = { ...where, status: 'open' };
     }
 
+    let pharmacist: any = null;
 
     if (currentUser.role === 'relief_pharmacist') {
+       pharmacist = await this.prisma.pharmacistProfile.findUnique({
+          where: { userId: currentUser.id },
+          include: { companyPermissions: true },
+        });
+
+        if (!pharmacist) {
+        throw new Error("Pharmacist profile not found");
+      }
+
       where.AND.push({ 
         pharmacist: {
           userId: currentUser.id,
@@ -520,8 +583,27 @@ export class ShiftsService {
     this.prisma.shift.count({ where: { ...where, status: 'cancelled' } }),
     ]);
 
+    const shiftsWithPermissions = shifts.map((shift) => {
+      let showPay = true;
+
+      if (currentUser.role === 'relief_pharmacist' && pharmacist) {
+        const specificPermission = pharmacist.companyPermissions.find(
+          (p) => p.companyId === shift.companyId
+        );
+        
+        if (specificPermission) {
+          showPay = specificPermission.canViewPayRate;
+        } 
+      }
+
+      return {
+          ...shift,
+        payRate: showPay ? shift.payRate : 'No Data',
+      };
+    });
+
     const response = {
-      data: shifts,
+      data: shiftsWithPermissions,
       meta: {
         totalItems: total,
         totalOpen: open,
@@ -548,15 +630,13 @@ async findShiftsByDate(
     // Build dynamic filters
     const where: any = { AND: [] };
 
+    let pharmacist: any = null;
+
     // Role-based scoping
-    // if (currentUser.role === 'relief_pharmacist') {
-    //   where.AND.push({ status: 'open' });
-    // }
     if (currentUser.role === 'relief_pharmacist') {
-      // Get pharmacist profile and allowed companies
-      const pharmacist = await this.prisma.pharmacistProfile.findUnique({
+      pharmacist = await this.prisma.pharmacistProfile.findUnique({
         where: { userId: currentUser.id },
-        include: { allowedCompanies: true },
+        include: { companyPermissions: true },
       });
 
       if (!pharmacist) {
@@ -566,7 +646,9 @@ async findShiftsByDate(
       if(pharmacist.canViewAllCompanies){
         where.AND.push({ status: 'open', published: true });
       }else{
-        const allowedCompanyIds = pharmacist.allowedCompanies.map((c) => c.id);
+        const allowedCompanyIds = pharmacist.companyPermissions.map(
+          (p) => p.companyId
+        );
 
         where.AND.push({ 
           status: 'open',
@@ -574,7 +656,6 @@ async findShiftsByDate(
           companyId: { in: allowedCompanyIds },
           });
       }
-
     }
 
     const include: any = {
@@ -611,8 +692,27 @@ async findShiftsByDate(
     this.prisma.shift.count({where}),
     ]);
 
+    const shiftsWithPermissions = shifts.map((shift) => {
+      let showPay = true;
+
+      if (currentUser.role === 'relief_pharmacist' && pharmacist) {
+        const specificPermission = pharmacist.companyPermissions.find(
+          (p) => p.companyId === shift.companyId
+        );
+        
+        if (specificPermission) {
+          showPay = specificPermission.canViewPayRate;
+        } 
+      }
+
+      return {
+          ...shift,
+        payRate: showPay ? shift.payRate : 'No Data',
+      };
+    });
+
     const response = {
-      data: shifts,
+      data: shiftsWithPermissions,
       meta: {
         totalItems: total,
         currentPage: page,

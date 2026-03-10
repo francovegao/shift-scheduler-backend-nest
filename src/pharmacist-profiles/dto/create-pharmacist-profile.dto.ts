@@ -1,5 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MinLength, IsEmail, IsBoolean, IsOptional, IsNumber, ValidateIf, IsArray, ArrayUnique } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsNotEmpty, IsString, MinLength, IsEmail, IsBoolean, IsOptional, IsNumber, ValidateIf, IsArray, ArrayUnique, IsObject, ValidateNested } from 'class-validator';
+
+class CompanyPermissionDto {
+  @IsString()
+  companyId: string;
+
+  @IsBoolean()
+  canViewPayRate: boolean;
+}
 
 export class CreatePharmacistProfileDto {
 
@@ -58,14 +67,14 @@ export class CreatePharmacistProfileDto {
   @ApiProperty({ default: false })
   canViewAllCompanies: boolean;
 
+  @IsBoolean()
+  @ApiProperty({ default: true })
+  canViewPayRates: boolean;
+
   @IsArray()
   @IsOptional()
-  @ArrayUnique()
-  @ApiProperty({
-    required: false,
-    type: [String],
-    description: 'List of company IDs this pharmacist can view or select shifts from',
-    example: ['company-id-1', 'company-id-2'],
-  })
-  allowedCompaniesIds?: string[];
+  @ValidateNested({ each: true })
+  @Type(() => CompanyPermissionDto)
+  @ApiProperty({ type: [CompanyPermissionDto], required: false })
+  companyPermissions?: CompanyPermissionDto[];
 }

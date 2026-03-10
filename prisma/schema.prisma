@@ -58,7 +58,7 @@ model Company {
   files     File[]
   shiftSeries ShiftSeries[]
 
-  allowedPharmacists PharmacistProfile[] @relation("PharmacistAllowedCompanies")
+  pharmacistPermissions PharmacistCompanyPermission[]
   allowedManagers User[] @relation("ManagerAllowedCompanies")
 }
 
@@ -83,10 +83,24 @@ model PharmacistProfile {
   experienceYears   Int?
   approved          Boolean
   canViewAllCompanies Boolean @default(false)
+  canViewPayRates     Boolean   @default(true)
+  
   createdAt         DateTime @default(now())
 
   shifts            Shift[]
-  allowedCompanies  Company[] @relation("PharmacistAllowedCompanies")
+  companyPermissions  PharmacistCompanyPermission[]
+}
+
+model PharmacistCompanyPermission {
+  id           String            @id @default(uuid())
+  pharmacist   PharmacistProfile @relation(fields: [pharmacistId], references: [id], onDelete: Cascade)
+  pharmacistId String
+  company      Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId    String
+  canViewPayRate Boolean         @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([pharmacistId, companyId]) 
 }
 
 model Location {

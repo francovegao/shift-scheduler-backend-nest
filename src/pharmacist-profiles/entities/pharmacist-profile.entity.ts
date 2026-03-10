@@ -38,6 +38,9 @@ export class PharmacistProfileEntity implements PharmacistProfile {
   @ApiProperty({default: false})
   canViewAllCompanies: boolean;
 
+  @ApiProperty({default: false})
+  canViewPayRates: boolean;
+
   @ApiProperty()
   createdAt: Date;
 }

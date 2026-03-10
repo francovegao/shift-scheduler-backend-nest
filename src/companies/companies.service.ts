@@ -103,7 +103,7 @@ export class CompaniesService {
         managers: true,
         locations: true,
         shifts: true,
-        allowedPharmacists: true,
+        pharmacistPermissions: true,
       }
      });
 
