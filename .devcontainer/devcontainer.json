@@ -1,0 +1,49 @@
+{
+	"name": "pharm-scheduler-backend-dockerfile",
+	//use dockerfile found in .devcontainer folder
+	"build": { "dockerfile": "Dockerfile" },
+	"customizations": {
+    "vscode": {
+      "extensions": [
+		"streetsidesoftware.code-spell-checker",
+		"dbaeumer.vscode-eslint",
+		"ms-vscode.vscode-typescript-next",
+		"esbenp.prettier-vscode",
+		"usernamehw.errorlens",
+		"firsttris.vscode-jest-runner",
+		"Orta.vscode-jest",
+		"yzhang.markdown-all-in-one",
+		"DavidAnson.vscode-markdownlint",
+		"Prisma.prisma"
+	]
+
+    }
+  },
+	"features": {
+		"ghcr.io/devcontainers/features/git:1": {
+			"ppa": true,
+			"version": "os-provided"
+		},
+		"ghcr.io/devcontainers/features/github-cli:1": {
+			"installDirectlyFromGitHubRelease": true,
+			"version": "latest"
+		},
+		"ghcr.io/dhoeric/features/google-cloud-cli:1": {}
+	},
+	"forwardPorts": [8080, 5555],
+	"portsAttributes": {
+    "5555": {
+      "label": "Prisma Studio"
+    },
+    "8080": {
+      "label": "nestJS API Service"
+    }
+	},
+	"mounts" : [
+    "source=${localEnv:HOME}/.config/gcloud,target=/home/vscode/.config/gcloud,type=bind"
+	],
+	"remoteEnv": {
+			"GOOGLE_APPLICATION_CREDENTIALS": "/home/root/.config/gcloud/application_default_credentials.json"
+	},
+	"postCreateCommand": "npm install && npx prisma generate"
+}
