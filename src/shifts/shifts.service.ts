@@ -13,7 +13,7 @@ import { RequestShiftCancelDto } from 'src/email/dto/request-cancellation.dto';
 @Injectable()
 export class ShiftsService {
   constructor(
-    private prisma: PrismaService, 
+    private prisma: PrismaService,
     private eventEmitter: EventEmitter2,
     private emailService: EmailService) {}
 
@@ -39,80 +39,11 @@ export class ShiftsService {
     return this.prisma.shift.create({ data: createShiftDto });
   }
 
-  /*async findAll(
-    currentUser: any,
-    paginationDto: PaginationDto, 
-    search?: string, 
-    locationId?: string, 
-    companyId?: string,
-    pharmacistId?: string
-  ) {
-     const { page = 1 , limit = 10 } = paginationDto;
-    const skip = (page - 1) * limit;
-
-    const query = search;
-    const location = locationId;
-    const company = companyId;
-    const pharmacist = pharmacistId;
-
-    const where: any = {};
-
-    const include: any = {
-      company: true,
-      location: true,
-      pharmacist: {
-        include: {
-          user: true,
-        },
-      },
-    }
-
-    if (query) {
-      where.OR = [
-        { title: { contains: query, mode: 'insensitive' } },
-        { description: { contains: query, mode: 'insensitive' } },
-        //{ startTime: { contains: query, mode: 'insensitive' } },
-        //{ endTime: { contains: query, mode: 'insensitive' } },
-        //{ payRate: { contains: query, mode: 'insensitive' } },
-        //{ status: { contains: query, mode: 'insensitive' } },
-      ];
-    }
-
-    if(location || company || pharmacist ){
-      where.OR= [
-        { locationId: location},
-        { companyId: company },
-        { pharmacistId: pharmacist },
-      ];
-    }
-
-    const [shifts, total] = await Promise.all([this.prisma.shift.findMany({
-      where,
-      include,
-      skip,
-      take: limit,
-    }),
-    this.prisma.shift.count({where}),
-    ]);
-
-    const response = {
-      data: shifts,
-      meta: {
-        totalItems: total,
-        currentPage: page,
-        itemsPerPage: limit,
-        totalPages: Math.ceil(total / limit),
-      }
-    };
-
-    return response;
-  }*/
-
   async findAll(
     currentUser: any,
-    paginationDto: PaginationDto, 
-    search?: string, 
-    locationId?: string, 
+    paginationDto: PaginationDto,
+    search?: string,
+    locationId?: string,
     companyId?: string,
     pharmacistId?: string,
     shiftId?: string,
@@ -146,7 +77,7 @@ export class ShiftsService {
         where.AND.push({ companyId });
       }else{
         where.AND.push({ companyId: currentUser.companyId });
-      }   
+      }
     }
     if (currentUser.role === 'location_manager') {
       where.AND.push({ locationId: currentUser.locationId });
@@ -170,7 +101,7 @@ export class ShiftsService {
           (p) => p.companyId
         );
 
-        where.AND.push({ 
+        where.AND.push({
           status: 'open',
           published: true,
           companyId: { in: allowedCompanyIds },
@@ -191,7 +122,7 @@ export class ShiftsService {
     if (shiftId) {
       where.AND.push({ id: shiftId });
     }
-  
+
     const include: any = {
       company: true,
       location: true,
@@ -234,11 +165,11 @@ export class ShiftsService {
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
-          { company : { name: {contains: search, mode: 'insensitive' }}}, 
-          { company : { email: {contains: search, mode: 'insensitive' }}}, 
-          { company : { phone: {contains: search, mode: 'insensitive' }}}, 
-          { company : { address: {contains: search, mode: 'insensitive' }}}, 
-          { company : { city: {contains: search, mode: 'insensitive' }}}, 
+          { company : { name: {contains: search, mode: 'insensitive' }}},
+          { company : { email: {contains: search, mode: 'insensitive' }}},
+          { company : { phone: {contains: search, mode: 'insensitive' }}},
+          { company : { address: {contains: search, mode: 'insensitive' }}},
+          { company : { city: {contains: search, mode: 'insensitive' }}},
           { location : { name: {contains: search, mode: 'insensitive' }}},
           { location : { email: {contains: search, mode: 'insensitive' }}},
           { location : { phone: {contains: search, mode: 'insensitive' }}},
@@ -356,8 +287,8 @@ export class ShiftsService {
 
   async findPharmacistShifts(
     currentUser: any,
-    paginationDto: PaginationDto, 
-    search?: string, 
+    paginationDto: PaginationDto,
+    search?: string,
     shiftId?: string,
     selectedStatus?: string,
     fromDate?: Date,
@@ -381,10 +312,10 @@ export class ShiftsService {
     const where: any = { AND: [] };
 
     if (currentUser.role === 'relief_pharmacist') {
-      where.AND.push({ 
+      where.AND.push({
         pharmacist: {
           userId: currentUser.id,
-        } 
+        }
       });
     }
 
@@ -409,11 +340,11 @@ export class ShiftsService {
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
-          { company : { name: {contains: search, mode: 'insensitive' }}}, 
-          { company : { email: {contains: search, mode: 'insensitive' }}}, 
-          { company : { phone: {contains: search, mode: 'insensitive' }}}, 
-          { company : { address: {contains: search, mode: 'insensitive' }}}, 
-          { company : { city: {contains: search, mode: 'insensitive' }}}, 
+          { company : { name: {contains: search, mode: 'insensitive' }}},
+          { company : { email: {contains: search, mode: 'insensitive' }}},
+          { company : { phone: {contains: search, mode: 'insensitive' }}},
+          { company : { address: {contains: search, mode: 'insensitive' }}},
+          { company : { city: {contains: search, mode: 'insensitive' }}},
           { location : { name: {contains: search, mode: 'insensitive' }}},
           { location : { email: {contains: search, mode: 'insensitive' }}},
           { location : { phone: {contains: search, mode: 'insensitive' }}},
@@ -450,7 +381,7 @@ export class ShiftsService {
         },
       });
     }
-    
+
 
     const [shifts, total] = await Promise.all([this.prisma.shift.findMany({
       where,
@@ -468,10 +399,10 @@ export class ShiftsService {
         const specificPermission = pharmacist.companyPermissions.find(
           (p) => p.companyId === shift.companyId
         );
-        
+
         if (specificPermission) {
           showPay = specificPermission.canViewPayRate;
-        } 
+        }
       }
 
       return {
@@ -495,7 +426,7 @@ export class ShiftsService {
 
   async findAllUserShifts(
     currentUser: any,
-    paginationDto: PaginationDto, 
+    paginationDto: PaginationDto,
     companyId?: string,
   ) {
     const { page = 1 , limit = 1000 } = paginationDto;
@@ -512,7 +443,7 @@ export class ShiftsService {
     }
 
     if (currentUser.role === 'pharmacy_manager') {
-    
+
       // Get manager allowed companies
       const manager = await this.prisma.user.findUnique({
         where: { id: currentUser.id },
@@ -523,7 +454,7 @@ export class ShiftsService {
         where.AND.push({ companyId });
       }else{
         where.AND.push({ companyId: currentUser.companyId });
-      } 
+      }
 
       openWhere = { ...where, status: 'open' };
     }
@@ -546,15 +477,15 @@ export class ShiftsService {
         throw new Error("Pharmacist profile not found");
       }
 
-      where.AND.push({ 
+      where.AND.push({
         pharmacist: {
           userId: currentUser.id,
-        } 
+        }
       });
 
-      openWhere = {  
+      openWhere = {
         status: 'open',
-        published: true 
+        published: true
        };
 
     }
@@ -590,10 +521,10 @@ export class ShiftsService {
         const specificPermission = pharmacist.companyPermissions.find(
           (p) => p.companyId === shift.companyId
         );
-        
+
         if (specificPermission) {
           showPay = specificPermission.canViewPayRate;
-        } 
+        }
       }
 
       return {
@@ -621,7 +552,7 @@ export class ShiftsService {
 
 async findShiftsByDate(
     currentUser: any,
-    paginationDto: PaginationDto, 
+    paginationDto: PaginationDto,
     date?: string
   ) {
     const { page = 1 , limit = 10 } = paginationDto;
@@ -650,7 +581,7 @@ async findShiftsByDate(
           (p) => p.companyId
         );
 
-        where.AND.push({ 
+        where.AND.push({
           status: 'open',
           published: true,
           companyId: { in: allowedCompanyIds },
@@ -675,7 +606,7 @@ async findShiftsByDate(
 
       where.AND.push({
         OR: [
-          { startTime: { 
+          { startTime: {
             gte: new Date(startDate.setHours(0,0,0,0)),
             lte: new Date(endDate.setHours(23,59,59,999)),
            } },
@@ -699,10 +630,10 @@ async findShiftsByDate(
         const specificPermission = pharmacist.companyPermissions.find(
           (p) => p.companyId === shift.companyId
         );
-        
+
         if (specificPermission) {
           showPay = specificPermission.canViewPayRate;
-        } 
+        }
       }
 
       return {
@@ -726,7 +657,7 @@ async findShiftsByDate(
 
   async findLatestShifts(
     currentUser: any,
-    paginationDto: PaginationDto, 
+    paginationDto: PaginationDto,
     companyId?: string,
   ) {
     const { page = 1 , limit = 10 } = paginationDto;
@@ -747,7 +678,7 @@ async findShiftsByDate(
         where.AND.push({ companyId });
       }else{
         where.AND.push({ companyId: currentUser.companyId });
-      } 
+      }
     }
 
     if (currentUser.role === 'location_manager') {
@@ -755,10 +686,10 @@ async findShiftsByDate(
     }
 
     if (currentUser.role === 'relief_pharmacist') {
-      where.AND.push({ 
+      where.AND.push({
         pharmacist: {
           userId: currentUser.id,
-        } 
+        }
       });
     }
 
@@ -799,7 +730,7 @@ async findShiftsByDate(
 
   async findMonthShifts(
     currentUser: any,
-    paginationDto: PaginationDto, 
+    paginationDto: PaginationDto,
     month?: string
   ) {
     const { page = 1 , limit = 10 } = paginationDto;
@@ -815,7 +746,7 @@ async findShiftsByDate(
       const endDate = new Date(year, monthNum, 0, 23, 59, 59, 999);
 
       where.AND.push({
-        startTime: { 
+        startTime: {
             gte: startDate,
             lte: endDate,
            },
@@ -865,7 +796,7 @@ async findShiftsByDate(
 
   async findWeekShifts(
     currentUser: any,
-    paginationDto: PaginationDto, 
+    paginationDto: PaginationDto,
     week: "current" | "last" | "beforeLast" | "next" | "afterNext" = "current"
   ) {
     const { page = 1 , limit = 10 } = paginationDto;
@@ -877,7 +808,7 @@ async findShiftsByDate(
     const where: any = { AND: [] };
 
     where.AND.push({
-        startTime: { 
+        startTime: {
             gte: start,
             lte: end,
            },
@@ -916,7 +847,7 @@ async findShiftsByDate(
   // Fill counts
   raw.forEach((item) => {
     const dateKey = item.startTime.toISOString().slice(0, 10);
-    
+
     if (!result[dateKey]) return;
 
     result[dateKey][item.status] += item._count._all;
@@ -1003,7 +934,7 @@ async findShiftsByDate(
           select: {
             name: true,
             timezone: true,
-            address: true, 
+            address: true,
             city: true,
             province: true,
           }
@@ -1046,24 +977,24 @@ async findShiftsByDate(
     const newEndTime = updatedShift.endTime;
 
     if( oldStartTime.getTime() !== newStartTime.getTime() || oldEndTime.getTime() !== newEndTime.getTime()){
-      if(updatedShift?.pharmacist?.user.email) 
+      if(updatedShift?.pharmacist?.user.email)
         this.emailService.emailPharmacistShiftUpdated(updatedShift?.pharmacist?.user.email, updatedShift)
     }
 
-    //Notify pharmacist if pharmacistId was changed 
+    //Notify pharmacist if pharmacistId was changed
     const oldPharmacistId = existingShift.pharmacistId;
     const newPharmacistId = updatedShift.pharmacistId;
 
     if(oldPharmacistId !== newPharmacistId){
-      if(existingShift?.pharmacist?.user.email) 
+      if(existingShift?.pharmacist?.user.email)
         this.emailService.emailPharmacistShiftCancelled(existingShift?.pharmacist?.user.email, existingShift)
     }
 
     return updatedShift;
   }
 
-  async remove(id: string) {
-    const removedShift = await this.prisma.shift.delete({ 
+async remove(id: string) {
+    const removedShift = await this.prisma.shift.delete({
       where: { id },
        include: {
         company: {
@@ -1081,14 +1012,14 @@ async findShiftsByDate(
             },
           },
         },
-      }, 
+      },
     });
 
     if(removedShift.status === "taken" && removedShift.pharmacistId){
-      if(removedShift?.pharmacist?.user.email) 
+      if(removedShift?.pharmacist?.user.email)
         this.emailService.emailPharmacistShiftCancelled(removedShift?.pharmacist?.user.email, removedShift)
     }
-    
+
     return removedShift;
   }
 
@@ -1145,7 +1076,7 @@ async findShiftsByDate(
     this.eventEmitter.emit(AppEvents.SHIFT_TAKEN, {
       shift: updatedShift,
     });
-    
+
     //Send emails
     const pharmacist = await this.prisma.pharmacistProfile.findUnique({
       where: { id: updateShiftDto.pharmacistId },
@@ -1169,10 +1100,10 @@ async findShiftsByDate(
             some: { id: updatedShift.companyId }
           }},
         ]
-      }, 
+      },
       select: { email: true }
     });
-    
+
     const managersEmails = [...new Set(users.map(u => u.email))];
 
     if(managersEmails.length>0){
@@ -1210,10 +1141,10 @@ async findShiftsByDate(
     if (shift.status !== 'open') {
       throw new ForbiddenException('Shift is no longer available');
     }
-    
+
     //Send emails
     const pharmacists = await this.prisma.pharmacistProfile.findMany({
-      where: { 
+      where: {
         id: {
           in: notifyUsersDto.userIds,
         },
@@ -1228,7 +1159,7 @@ async findShiftsByDate(
         this.emailService.emailPharmacistShiftOpen(pharmacist.user.email, shift)
       ),
     );
-    
+
     return { success: true };
   }
 
@@ -1238,7 +1169,7 @@ async findShiftsByDate(
   ) {
 
     const shift = await this.prisma.shift.findUnique({
-      where: { 
+      where: {
         id,
         pharmacistId: requestShiftCancelDto.pharmacistProfileId,
        },
@@ -1262,7 +1193,7 @@ async findShiftsByDate(
             }
           }
         }
-      
+
       },
     });
 
@@ -1277,15 +1208,28 @@ async findShiftsByDate(
     if (shift.status !== 'taken') {
       throw new ForbiddenException('Shift is no longer available');
     }
-    
+
     //Send emails
     const contactPersonEmail = shift.company.contactEmail;
     const cancellationReason= requestShiftCancelDto.cancelReason;
 
-    if(contactPersonEmail && shift.pharmacist){
-      this.emailService.emailRequestShiftCancellation(contactPersonEmail, shift, cancellationReason)
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'admin' },
+      select: { email: true }
+    });
+
+    const recipientList = admins.map(a => a.email);
+    if (contactPersonEmail) {
+      recipientList.push(contactPersonEmail);
     }
-    
+
+    //eliminate duplicate emails
+    const adminAndContactPersonEmails = [...new Set(recipientList)];
+
+    if(contactPersonEmail && shift.pharmacist){
+      this.emailService.emailRequestShiftCancellation(adminAndContactPersonEmails, shift, cancellationReason)
+    }
+
     return { success: true };
   }
 

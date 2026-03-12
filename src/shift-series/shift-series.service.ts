@@ -3,18 +3,23 @@ import { CreateShiftSeryDto } from './dto/create-shift-sery.dto';
 import { UpdateShiftSeryDto } from './dto/update-shift-sery.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Prisma } from 'generated/prisma';
-import { fromZonedTime } from 'date-fns-tz';
+import { fromZonedTime, toZonedTime } from 'date-fns-tz';
+import { DeleteShiftSeriesDto } from './dto/delete-shift-sery.dto';
+import { ShiftsService } from 'src/shifts/shifts.service';
 
 @Injectable()
 export class ShiftSeriesService {
-  constructor(private prisma: PrismaService) {}
-  
+  constructor(
+    private prisma: PrismaService,
+    private shiftsService: ShiftsService
+  ) {}
+
   async create(createShiftSeryDto: CreateShiftSeryDto) {
     const { status, pharmacistId, ...shiftSeriesData } = createShiftSeryDto;
 
     return await this.prisma.$transaction(async (tx) => {
-        const series = await tx.shiftSeries.create({ 
-          data: shiftSeriesData, 
+        const series = await tx.shiftSeries.create({
+          data: shiftSeriesData,
         });
       const shifts: Prisma.ShiftCreateManyInput[] = [];
 
@@ -70,7 +75,7 @@ export class ShiftSeriesService {
               description: createShiftSeryDto.description ?? null,
               payRate: createShiftSeryDto.payRate,
               startTime: shiftStart,
-              endTime: shiftEnd, 
+              endTime: shiftEnd,
               published: createShiftSeryDto.published,
               seriesId: series.id,
               status: createShiftSeryDto.status ?? 'open',
@@ -98,19 +103,176 @@ export class ShiftSeriesService {
     return `This action returns a #${id} shiftSery`;
   }
 
-  update(id: number, updateShiftSeryDto: UpdateShiftSeryDto) {
-    return `This action updates a #${id} shiftSery`;
+  async update(id: string, updateShiftSeryDto: UpdateShiftSeryDto) {
+
+    //find reference Shift
+    const referenceShift = await this.prisma.shift.findUnique({
+      where: { id: updateShiftSeryDto.shiftSeriesData.referenceShiftId },
+      include: {
+        company: {
+          select: {
+            timezone: true,
+          },
+        },
+      },
+    });
+
+    if (!referenceShift) {
+      throw new Error("Reference Shift not found");
+    }
+
+    //Check if start and end time are being updated
+    const timeZone = referenceShift.company.timezone;
+    const zonedStartTime = toZonedTime(referenceShift.startTime, timeZone);
+    const zonedEndTime = toZonedTime(referenceShift.endTime, timeZone);
+
+    const referenceStartMinutes = (zonedStartTime.getHours() * 60 ) + zonedStartTime.getMinutes();
+    const referenceEndMinutes = (zonedEndTime.getHours() * 60 ) + zonedEndTime.getMinutes();
+
+    //If no change in minutes remove startTime and endTime from updateShiftDto
+    if (updateShiftSeryDto.shiftData.startTime !== undefined) {
+      const [hours, minutes] = updateShiftSeryDto.shiftData.startTime.split(':');
+      const incomingMinutes = parseInt(hours, 10) * 60 + parseInt(minutes, 10);
+      if (referenceStartMinutes === incomingMinutes) {
+        delete updateShiftSeryDto.shiftData.startTime;
+      }
+    }
+    if (updateShiftSeryDto.shiftData.endTime !== undefined) {
+      const [hours, minutes] = updateShiftSeryDto.shiftData.endTime.split(':');
+      const incomingMinutes = parseInt(hours, 10) * 60 + parseInt(minutes, 10);
+
+      if (referenceEndMinutes === incomingMinutes) {
+        delete updateShiftSeryDto.shiftData.endTime;
+      }
+    }
+
+    const whereFilter: Prisma.ShiftWhereInput =
+      updateShiftSeryDto.shiftSeriesData.scope === "future"
+        ? {
+            seriesId: id,
+            status: { notIn: ['completed', 'cancelled'] },
+            startTime: { gte: referenceShift.startTime },
+          }
+        : {
+            seriesId: id,
+            status: { notIn: ['completed', 'cancelled'] },
+            startTime: { gte: new Date() },
+          };
+
+      const shifts = await this.prisma.shift.findMany({
+        where: whereFilter,
+      });
+
+      const updatedShifts: any[] = [];
+
+      for (const shift of shifts) {
+
+        let newStartTime = shift.startTime;
+        let newEndTime = shift.endTime;
+
+        if (updateShiftSeryDto.shiftData.startTime !== undefined) {
+          const zonedStart = toZonedTime(shift.startTime, timeZone);
+
+          const [hours, minutes] = updateShiftSeryDto.shiftData.startTime.split(':');
+
+          zonedStart.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+          newStartTime = zonedStart;
+        }
+
+        if (updateShiftSeryDto.shiftData.endTime !== undefined) {
+          const zonedEnd = toZonedTime(shift.endTime, timeZone);
+
+          const [hours, minutes] = updateShiftSeryDto.shiftData.endTime.split(':');
+
+          zonedEnd.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+          newEndTime = zonedEnd;
+        }
+
+        //If Overnight shift
+        if (updateShiftSeryDto.shiftData.endTime !== undefined &&
+            updateShiftSeryDto.shiftData.startTime !== undefined){
+          if (updateShiftSeryDto.shiftData.endTime < updateShiftSeryDto.shiftData.startTime) {
+            newEndTime.setDate(newEndTime.getDate() + 1);
+          }
+        }
+
+        const updated = await this.shiftsService.update(
+          shift.id,
+          {
+            ...updateShiftSeryDto.shiftData,
+            startTime: newStartTime.toISOString(),
+            endTime: newEndTime.toISOString(),
+            companyId: shift.companyId
+          }
+        );
+
+        updatedShifts.push(updated);
+      }
+
+      return updatedShifts;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} shiftSery`;
+  async remove(id: string, deleteShiftSeriesDto: DeleteShiftSeriesDto) {
+
+    //find reference Shift
+    const referenceShift = await this.prisma.shift.findUnique({
+      where: { id: deleteShiftSeriesDto.referenceShiftId },
+    });
+
+    if (!referenceShift) {
+      throw new Error("Reference Shift not found");
+    }
+
+    if(deleteShiftSeriesDto.scope==="future"){
+      await this.prisma.shift.deleteMany({
+        where: {
+          seriesId: id,
+          startTime: {
+            gte: referenceShift.startTime,
+          },
+          status: {
+            not: 'completed',
+          },
+        },
+      });
+    }else if(deleteShiftSeriesDto.scope==="all"){
+      await this.prisma.shift.deleteMany({
+        where: {
+          seriesId: id,
+          startTime: {
+            gte: new Date(),
+          },
+          status: {
+            not: 'completed',
+          },
+        },
+      });
+    }
+
+      //Check if shiftSeries is empty
+      const shiftSerie = await this.prisma.shiftSeries.findUnique({
+        where: { id },
+        include: {
+          shifts: true
+        },
+      });
+
+      if(shiftSerie?.shifts.length === 0){
+        await this.prisma.shiftSeries.delete({
+          where: { id },
+        });
+      }
+
+    return shiftSerie;
   }
 }
 
 function buildUtcFromLocal(
-  dateStr: string,     
-  totalMinutes: number,    
-  timezone: string          
+  dateStr: string,
+  totalMinutes: number,
+  timezone: string
 ): Date {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;

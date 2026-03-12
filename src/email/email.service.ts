@@ -5,31 +5,31 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 type ShiftWithCompany = Shift & { company: {name: string, timezone: string }};
-type ShiftWithCompanyAddress = Shift & { company: {name: string, timezone: string, 
-                        address: string | null, 
-                        city: string | null, 
+type ShiftWithCompanyAddress = Shift & { company: {name: string, timezone: string,
+                        address: string | null,
+                        city: string | null,
                         province: string | null } };
-type ShiftWithPharmacist = Shift & { 
-                            company: { 
-                                name: string; 
+type ShiftWithPharmacist = Shift & {
+                            company: {
+                                name: string;
                                 timezone: string;
-                                contactName: string | null; 
-                                contactEmail: string | null; 
-                            }; 
-                            pharmacist: { 
-                                user: { 
-                                email: string; 
-                                firstName: string | null; 
-                                lastName: string | null; 
-                                }; 
-                            } | null; 
+                                contactName: string | null;
+                                contactEmail: string | null;
+                            };
+                            pharmacist: {
+                                user: {
+                                email: string;
+                                firstName: string | null;
+                                lastName: string | null;
+                                };
+                            } | null;
                             };
 
 @Injectable()
 export class EmailService {
-    private resend: Resend; 
+    private resend: Resend;
     private readonly logger = new Logger(EmailService.name);
-    
+
     constructor(private prisma: PrismaService) {
         this.resend = new Resend(process.env.RESEND_API_KEY);
     }
@@ -50,9 +50,9 @@ export class EmailService {
                               Notes: ${shift.title}<br>
                               ${shift.description}</p>
                               <a href="${generateGCalLink(shift)}">
-                              Click here to add shift 
+                              Click here to add shift
                               to Google Calendar</a>
-                              <p>To view all the details go to 
+                              <p>To view all the details go to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
                               <p>Thank you,<br>
                               Shift Happens Team</p>`;
@@ -67,15 +67,15 @@ export class EmailService {
 
             if (error) throw new Error(JSON.stringify(error));
 
-            await this.logEmail({ 
-                to, subject, status: 'sent', templateName, providerMessageId: data.id 
+            await this.logEmail({
+                to, subject, status: 'sent', templateName, providerMessageId: data.id
             });
 
             this.logger.log('Email sent successfully');
             return data;
         } catch (error) {
-            await this.logEmail({ 
-                to, subject, status: 'failed', templateName, errorMessage: error.message 
+            await this.logEmail({
+                to, subject, status: 'failed', templateName, errorMessage: error.message
             });
             this.logger.error('Unexpected error sending email', error.stack);
             throw error;
@@ -98,7 +98,7 @@ export class EmailService {
                               To: <strong>${endTime}</strong><br>
                               Notes: ${shift.title}<br>
                               ${shift.description}</p>
-                              <p>To view all the details go to 
+                              <p>To view all the details go to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
                               <p>Thank you,<br>
                               Shift Happens Team</p>`;
@@ -113,39 +113,32 @@ export class EmailService {
 
             const { data, error } = await this.resend.batch.send(batchEmails);
 
-            // const { data, error } = await this.resend.batch.send({
-            //     from: 'Shift Happens <no-reply@shifthappens.curisrx.ca>',
-            //     to: [to],
-            //     subject: subject,
-            //     html: htmlContent,
-            // });
-
             if (error) throw new Error(JSON.stringify(error));
 
              await Promise.all(
-                managersEmails.map((to, index) => 
-                    this.logEmail({ 
-                        to, 
-                        subject, 
-                        status: 'sent', 
-                        templateName, 
-                        providerMessageId: data?.data[index]?.id 
+                managersEmails.map((to, index) =>
+                    this.logEmail({
+                        to,
+                        subject,
+                        status: 'sent',
+                        templateName,
+                        providerMessageId: data?.data[index]?.id
                     })
                 )
             );
-            
+
 
             this.logger.log('Email sent successfully');
             return data;
         } catch (error) {
             await Promise.all(
-                managersEmails.map(to => 
-                    this.logEmail({ 
-                        to, 
-                        subject, 
-                        status: 'failed', 
-                        templateName, 
-                        errorMessage: error.message 
+                managersEmails.map(to =>
+                    this.logEmail({
+                        to,
+                        subject,
+                        status: 'failed',
+                        templateName,
+                        errorMessage: error.message
                     })
                 )
             );
@@ -169,7 +162,7 @@ export class EmailService {
                               To: <strong>${endTime}</strong><br>
                               Notes: ${shift.title}<br>
                               ${shift.description}</p>
-                              <p>If you would like to take this shift go to  
+                              <p>If you would like to take this shift go to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
                               <p>Thank you,<br>
                               Shift Happens Team</p>`;
@@ -184,20 +177,20 @@ export class EmailService {
 
             if (error) throw new Error(JSON.stringify(error));
 
-            await this.logEmail({ 
-                to, subject, status: 'sent', templateName, providerMessageId: data.id 
+            await this.logEmail({
+                to, subject, status: 'sent', templateName, providerMessageId: data.id
             });
-            
-            await this.logEmail({ 
-                to, subject, status: 'sent', templateName, providerMessageId: data.id 
+
+            await this.logEmail({
+                to, subject, status: 'sent', templateName, providerMessageId: data.id
             });
 
             this.logger.log('Email sent successfully');
             return data;
         } catch (error) {
 
-            await this.logEmail({ 
-                to, subject, status: 'failed', templateName, errorMessage: error.message 
+            await this.logEmail({
+                to, subject, status: 'failed', templateName, errorMessage: error.message
             });
 
             this.logger.error('Unexpected error sending email', error.stack);
@@ -222,9 +215,9 @@ export class EmailService {
                               Notes: ${shift.title}<br>
                               ${shift.description}</p>
                               <a href="${generateGCalLink(shift)}">
-                              Click here to add shift 
+                              Click here to add shift
                               to Google Calendar</a>
-                              <p>To view all the details go to 
+                              <p>To view all the details go to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
                               <p>Thank you,<br>
                               Shift Happens Team</p>`;
@@ -239,22 +232,22 @@ export class EmailService {
 
             if (error) throw new Error(JSON.stringify(error));
 
-            await this.logEmail({ 
-                to, subject, status: 'sent', templateName, providerMessageId: data.id 
+            await this.logEmail({
+                to, subject, status: 'sent', templateName, providerMessageId: data.id
             });
 
             this.logger.log('Email sent successfully');
             return data;
         } catch (error) {
-            await this.logEmail({ 
-                to, subject, status: 'failed', templateName, errorMessage: error.message 
+            await this.logEmail({
+                to, subject, status: 'failed', templateName, errorMessage: error.message
             });
             this.logger.error('Unexpected error sending email', error.stack);
             throw error;
         }
     }
 
-    async emailRequestShiftCancellation(to: string, shift: ShiftWithPharmacist, cancellationReason: string ) {
+    async emailRequestShiftCancellation(adminAndContactPersonEmails: string[], shift: ShiftWithPharmacist, cancellationReason: string ) {
         const templateName = 'request_shift_cancellation';
         const subject = `Request to cancel shift at ${shift.company.name}`;
 
@@ -274,38 +267,51 @@ export class EmailService {
                               email: <strong>${shift?.pharmacist?.user.email}</strong></p>
                               <h3>Cancel Reason</h3>
                               <p>Reason: <strong>${cancellationReason}</strong><br>
-                              <p>To approve this request, please log in to  
+                              <p>To approve this request, please log in to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a> and
                               cancel this shift.</p>
                               <p>Thank you,<br>
                               Shift Happens Team</p>`;
 
         try {
-            const { data, error } = await this.resend.emails.send({
+            const batchEmails = adminAndContactPersonEmails.map(email => ({
                 from: 'Shift Happens <no-reply@shifthappens.curisrx.ca>',
-                to: [to],
+                to: [email],
                 subject: subject,
-                html: htmlContent,
-            });
+                html: htmlContent
+            }));
+
+            const { data, error } = await this.resend.batch.send(batchEmails);
 
             if (error) throw new Error(JSON.stringify(error));
 
-            await this.logEmail({ 
-                to, subject, status: 'sent', templateName, providerMessageId: data.id 
-            });
-            
-            await this.logEmail({ 
-                to, subject, status: 'sent', templateName, providerMessageId: data.id 
-            });
+             await Promise.all(
+                adminAndContactPersonEmails.map((to, index) =>
+                    this.logEmail({
+                        to,
+                        subject,
+                        status: 'sent',
+                        templateName,
+                        providerMessageId: data?.data[index]?.id
+                    })
+                )
+            );
+
 
             this.logger.log('Email sent successfully');
             return data;
         } catch (error) {
-
-            await this.logEmail({ 
-                to, subject, status: 'failed', templateName, errorMessage: error.message 
-            });
-
+            await Promise.all(
+                adminAndContactPersonEmails.map(to =>
+                    this.logEmail({
+                        to,
+                        subject,
+                        status: 'failed',
+                        templateName,
+                        errorMessage: error.message
+                    })
+                )
+            );
             this.logger.error('Unexpected error sending email', error.stack);
             throw error;
         }
@@ -327,7 +333,7 @@ export class EmailService {
                               To: <strong>${endTime}</strong><br>
                               Notes: ${shift.title}<br>
                               ${shift.description}</p>
-                              <p>To view all the details go to 
+                              <p>To view all the details go to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
                               <p>Thank you,<br>
                               Shift Happens Team</p>`;
@@ -342,15 +348,15 @@ export class EmailService {
 
             if (error) throw new Error(JSON.stringify(error));
 
-            await this.logEmail({ 
-                to, subject, status: 'sent', templateName, providerMessageId: data.id 
+            await this.logEmail({
+                to, subject, status: 'sent', templateName, providerMessageId: data.id
             });
 
             this.logger.log('Email sent successfully');
             return data;
         } catch (error) {
-            await this.logEmail({ 
-                to, subject, status: 'failed', templateName, errorMessage: error.message 
+            await this.logEmail({
+                to, subject, status: 'failed', templateName, errorMessage: error.message
             });
             this.logger.error('Unexpected error sending email', error.stack);
             throw error;
@@ -380,15 +386,15 @@ export class EmailService {
 
             if (error) throw new Error(JSON.stringify(error));
 
-            await this.logEmail({ 
-                to, subject, status: 'sent', templateName, providerMessageId: data.id 
+            await this.logEmail({
+                to, subject, status: 'sent', templateName, providerMessageId: data.id
             });
 
             this.logger.log('Email sent successfully');
             return data;
         } catch (error) {
-            await this.logEmail({ 
-                to, subject, status: 'failed', templateName, errorMessage: error.message 
+            await this.logEmail({
+                to, subject, status: 'failed', templateName, errorMessage: error.message
             });
             this.logger.error('Unexpected error sending email', error.stack);
             throw error;
@@ -432,7 +438,7 @@ function generateGCalLink(shift: ShiftWithCompanyAddress) {
     const end = formatInTimeZone(shift.endTime, shift.company?.timezone, "yyyyMMdd'T'HHmmssXXX");
     const appLink = `https://shifthappens.vercel.app/`;
     const eventDetails = `Details: ${shift.title || ""}: ${shift.description || ""} \n\n<a href="${appLink}">Click here to view all details</a>`;
-    
+
     const params = new URLSearchParams({
       text: `Shift at ${shift.company?.name}`,
       dates: `${start}/${end}`,
@@ -447,7 +453,7 @@ function getFullAddress(
   address: string | null | undefined,
   city: string | null | undefined,
   province: string | null | undefined,
-  postalCode: string | null | undefined, 
+  postalCode: string | null | undefined,
 ) {
 
   if (!address && !city && !province && !postalCode) {

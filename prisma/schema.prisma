@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  binaryTargets   = ["windows", "linux-musl-openssl-3.0.x"]
+  binaryTargets   = ["windows", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
   output   = "../generated/prisma"
 }
 
@@ -84,7 +84,7 @@ model PharmacistProfile {
   approved          Boolean
   canViewAllCompanies Boolean @default(false)
   canViewPayRates     Boolean   @default(true)
-  
+
   createdAt         DateTime @default(now())
 
   shifts            Shift[]
@@ -100,7 +100,7 @@ model PharmacistCompanyPermission {
   canViewPayRate Boolean         @default(false)
   createdAt DateTime @default(now())
 
-  @@unique([pharmacistId, companyId]) 
+  @@unique([pharmacistId, companyId])
 }
 
 model Location {
@@ -117,7 +117,7 @@ model Location {
   timezone    String @default("America/Edmonton")
   company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   companyId   String
-  
+
   shifts      Shift[]
   managers    User[]
   shiftSeries ShiftSeries[]
@@ -234,16 +234,16 @@ enum RepeatType {
 
 model EmailLog {
   id                 String   @id @default(uuid())
-  recipientEmail     String   
+  recipientEmail     String
   user               User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId             String?
   subject            String
   templateName       String?
   status             EmailStatus
   providerMessageId  String?
-  errorMessage       String? 
+  errorMessage       String?
   metadata           Json?    @db.JsonB
-  createdAt          DateTime @default(now()) 
+  createdAt          DateTime @default(now())
 }
 
 enum EmailStatus {
