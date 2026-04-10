@@ -1,13 +1,13 @@
 steps:
-  # Step 1: Build Docker image
+  # Step 0 Build Docker image
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-t', 'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api-staging:latest', '.']
 
-  # Step 2: Push to Google Container Registry
+  # Step 1: Push to Google Container Registry
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api-staging:latest']
 
-  # Step 3: Deploy to Cloud Run
+  # Step 2: Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -27,7 +27,7 @@ steps:
         #'--set-env-vars', 'PORT=8080'
       ]
 
-  # Step 4: Deploy Cloud Run Job
+  # Step 3: Deploy Cloud Run Job
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
