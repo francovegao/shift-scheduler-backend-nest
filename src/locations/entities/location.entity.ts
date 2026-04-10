@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Location } from 'generated/prisma';
+import { Location } from '../../../generated/prisma/client';
 
 
 export class LocationEntity implements Location {

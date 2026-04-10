@@ -8,10 +8,8 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  MaxLength,
-  MinLength,
 } from 'class-validator';
-import { Role } from 'generated/prisma';
+import { Role } from '../../../generated/prisma/client';
 
 export class CreateUserDto {
   @IsString()

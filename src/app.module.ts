@@ -13,11 +13,25 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { HealthModule } from './health/health.module';
 import { ShiftSeriesModule } from './shift-series/shift-series.module';
 import { EmailService } from './email/email.service';
+import { FilesModule } from './files/files.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
-  imports: [PrismaModule, UsersModule, CompaniesModule, 
-    ShiftsModule, LocationsModule, PharmacistProfilesModule, 
-    AuthModule, NotificationsModule, EventEmitterModule.forRoot(), HealthModule, ShiftSeriesModule],
+  imports: [
+    PrismaModule,
+    UsersModule,
+    CompaniesModule,
+    ShiftsModule,
+    LocationsModule,
+    PharmacistProfilesModule,
+    AuthModule,
+    NotificationsModule,
+    EventEmitterModule.forRoot(),
+    HealthModule,
+    ShiftSeriesModule,
+    FilesModule,
+    StorageModule,
+  ],
   controllers: [AppController],
   providers: [AppService, EmailService],
 })

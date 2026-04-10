@@ -1,43 +1,43 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Shift, ShiftStatus } from 'generated/prisma';
+import { Shift, ShiftStatus } from '../../../generated/prisma/client';
 
 export class ShiftEntity implements Shift {
-    @ApiProperty()
-    id: string;
+  @ApiProperty()
+  id: string;
 
-    @ApiProperty()
-    companyId: string;
+  @ApiProperty()
+  companyId: string;
 
-    @ApiProperty({ required: false, nullable: true })
-    locationId: string | null;
+  @ApiProperty({ required: false, nullable: true })
+  locationId: string | null;
 
-    @ApiProperty()
-    title: string;
+  @ApiProperty()
+  title: string;
 
-    @ApiProperty({ required: false, nullable: true })
-    description: string | null;
-    
-    @ApiProperty()
-    startTime: Date;
+  @ApiProperty({ required: false, nullable: true })
+  description: string | null;
 
-    @ApiProperty()
-    endTime: Date;
+  @ApiProperty()
+  startTime: Date;
 
-    @ApiProperty()
-    payRate: number;
+  @ApiProperty()
+  endTime: Date;
 
-    @ApiProperty()
-    status: ShiftStatus;
+  @ApiProperty()
+  payRate: number;
 
-    @ApiProperty()
-    published: boolean;
+  @ApiProperty()
+  status: ShiftStatus;
 
-    @ApiProperty()
-    createdAt: Date;
+  @ApiProperty()
+  published: boolean;
 
-    @ApiProperty()
-    pharmacistId: string;
+  @ApiProperty()
+  createdAt: Date;
 
-    @ApiProperty({ required: false, nullable: true })
-    seriesId: string | null;
+  @ApiProperty()
+  pharmacistId: string;
+
+  @ApiProperty({ required: false, nullable: true })
+  seriesId: string | null;
 }

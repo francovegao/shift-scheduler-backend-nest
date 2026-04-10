@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { RepeatType, ShiftSeries } from "generated/prisma";
+import { RepeatType, ShiftSeries } from '../../../generated/prisma/client';
 
 export class ShiftSery implements ShiftSeries {
     @ApiProperty()

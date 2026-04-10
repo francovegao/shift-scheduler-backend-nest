@@ -1,65 +1,206 @@
 generator client {
-  provider = "prisma-client-js"
-  binaryTargets   = ["windows", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x", "debian-openssl-1.1.x"]
-  output   = "../generated/prisma"
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
-  id          String   @id @default(uuid())
-  firebaseUid String   @unique
-  email       String   @unique
-  firstName   String?
-  lastName    String?
-  phone       String?
-  createdAt   DateTime @default(now())
-
-  role        Role
-  company     Company?  @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  companyId   String?
-  allowedCompanies Company[] @relation("ManagerAllowedCompanies")
-  location    Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  locationId  String?
-
-  pharmacistProfile PharmacistProfile?
-  notifications     Notification[]
-  files             File[]
+  id                String             @id @default(uuid())
+  firebaseUid       String             @unique
+  email             String             @unique
+  firstName         String?
+  lastName          String?
+  phone             String?
+  createdAt         DateTime           @default(now())
+  companyId         String?
+  locationId        String?
+  role              Role
   emailLogs         EmailLog[]
+  files             File[]
+  notifications     Notification[]
+  pharmacistProfile PharmacistProfile?
+  company           Company?           @relation(fields: [companyId], references: [id])
+  location          Location?          @relation(fields: [locationId], references: [id])
+  allowedCompanies  Company[]          @relation("ManagerAllowedCompanies")
 
   @@index([companyId])
   @@index([locationId])
 }
 
 model Company {
-  id          String   @id @default(uuid())
-  approved    Boolean  @default(true)
-  name        String   @unique
-  legalName   String?
-  GSTNumber   String?
+  id                    String                        @id @default(uuid())
+  approved              Boolean                       @default(true)
+  name                  String                        @unique
+  email                 String?
+  phone                 String?
+  address               String?
+  city                  String?
+  province              String?
+  postalCode            String?
+  createdAt             DateTime                      @default(now())
+  GSTNumber             String?
+  legalName             String?
+  contactEmail          String?
+  contactName           String?
+  contactPhone          String?
+  timezone              String                        @default("America/Edmonton")
+  files                 File[]
+  locations             Location[]
+  pharmacistPermissions PharmacistCompanyPermission[]
+  shifts                Shift[]
+  shiftSeries           ShiftSeries[]
+  managers              User[]
+  allowedManagers       User[]                        @relation("ManagerAllowedCompanies")
+}
+
+model PharmacistProfile {
+  id                  String                        @id @default(uuid())
+  userId              String                        @unique
+  licenseNumber       String?
+  address             String?
+  city                String?
+  province            String?
+  postalCode          String?
+  email               String?
+  bio                 String?
+  experienceYears     Int?
+  approved            Boolean
+  createdAt           DateTime                      @default(now())
+  canViewAllCompanies Boolean                       @default(false)
+  canViewPayRates     Boolean                       @default(true)
+  companyPermissions  PharmacistCompanyPermission[]
+  user                User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shifts              Shift[]
+}
+
+model PharmacistCompanyPermission {
+  id             String            @id @default(uuid())
+  pharmacistId   String
+  companyId      String
+  canViewPayRate Boolean           @default(false)
+  createdAt      DateTime          @default(now())
+  company        Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  pharmacist     PharmacistProfile @relation(fields: [pharmacistId], references: [id], onDelete: Cascade)
+
+  @@unique([pharmacistId, companyId])
+}
+
+model Location {
+  id          String        @id @default(uuid())
+  name        String        @unique
   email       String?
   phone       String?
   address     String?
   city        String?
   province    String?
   postalCode  String?
-  contactName String?
-  contactPhone String?
-  contactEmail String?
-  timezone     String @default("America/Edmonton")
-  createdAt   DateTime @default(now())
-
-  managers  User[]
-  locations Location[]
-  shifts    Shift[]
-  files     File[]
+  companyId   String
+  GSTNumber   String?
+  legalName   String?
+  timezone    String        @default("America/Edmonton")
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  shifts      Shift[]
   shiftSeries ShiftSeries[]
+  managers    User[]
 
-  pharmacistPermissions PharmacistCompanyPermission[]
-  allowedManagers User[] @relation("ManagerAllowedCompanies")
+  @@index([companyId])
+}
+
+model Shift {
+  id           String             @id @default(uuid())
+  companyId    String
+  locationId   String?
+  title        String
+  description  String?
+  startTime    DateTime
+  endTime      DateTime
+  payRate      Float
+  status       ShiftStatus        @default(open)
+  createdAt    DateTime           @default(now())
+  pharmacistId String?
+  published    Boolean            @default(false)
+  seriesId     String?
+  company      Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  location     Location?          @relation(fields: [locationId], references: [id])
+  pharmacist   PharmacistProfile? @relation(fields: [pharmacistId], references: [id])
+  series       ShiftSeries?       @relation(fields: [seriesId], references: [id])
+
+  @@index([companyId])
+  @@index([locationId])
+  @@index([pharmacistId])
+  @@index([published])
+  @@index([seriesId])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType @default(shift)
+  actionUrl String?
+  seen      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model File {
+  id         String    @id @default(uuid())
+  userId     String?
+  fileName   String
+  fileUrl    String
+  uploadedAt DateTime  @default(now())
+  companyId  String?
+  mimeType   String?
+  size       Int?
+  type       FileType?
+  company    Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user       User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type], map: "unique_user_resume", where: raw("(type = 'resume'::\"FileType\")"))
+  @@unique([userId, type], map: "unique_user_profile_pic", where: raw("(type = 'profilePicture'::\"FileType\")"))
+  @@unique([companyId, type], map: "unique_company_logo", where: raw("(type = 'logo'::\"FileType\")"))
+}
+
+model ShiftSeries {
+  id              String     @id @default(uuid())
+  companyId       String
+  locationId      String?
+  title           String
+  description     String?
+  payRate         Float
+  startMinutes    Int
+  endMinutes      Int
+  repeatType      RepeatType
+  daysOfWeek      Int[]
+  startDate       DateTime
+  endDate         DateTime
+  excludeWeekends Boolean    @default(false)
+  published       Boolean    @default(false)
+  createdAt       DateTime   @default(now())
+  shifts          Shift[]
+  company         Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  location        Location?  @relation(fields: [locationId], references: [id])
+}
+
+model EmailLog {
+  id                String      @id @default(uuid())
+  recipientEmail    String
+  userId            String?
+  subject           String
+  templateName      String?
+  status            EmailStatus
+  providerMessageId String?
+  errorMessage      String?
+  metadata          Json?
+  createdAt         DateTime    @default(now())
+  user              User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 enum Role {
@@ -69,108 +210,11 @@ enum Role {
   location_manager
 }
 
-model PharmacistProfile {
-  id                String   @id @default(uuid())
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId            String   @unique
-  licenseNumber     String?
-  address           String?
-  city              String?
-  province          String?
-  postalCode        String?
-  email             String?
-  bio               String?
-  experienceYears   Int?
-  approved          Boolean
-  canViewAllCompanies Boolean @default(false)
-  canViewPayRates     Boolean   @default(true)
-
-  createdAt         DateTime @default(now())
-
-  shifts            Shift[]
-  companyPermissions  PharmacistCompanyPermission[]
-}
-
-model PharmacistCompanyPermission {
-  id           String            @id @default(uuid())
-  pharmacist   PharmacistProfile @relation(fields: [pharmacistId], references: [id], onDelete: Cascade)
-  pharmacistId String
-  company      Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  companyId    String
-  canViewPayRate Boolean         @default(false)
-  createdAt DateTime @default(now())
-
-  @@unique([pharmacistId, companyId])
-}
-
-model Location {
-  id          String  @id @default(uuid())
-  name        String  @unique
-  legalName   String?
-  GSTNumber   String?
-  email       String?
-  phone       String?
-  address     String?
-  city        String?
-  province    String?
-  postalCode  String?
-  timezone    String @default("America/Edmonton")
-  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  companyId   String
-
-  shifts      Shift[]
-  managers    User[]
-  shiftSeries ShiftSeries[]
-
-  @@index([companyId])
-}
-
-model Shift {
-  id           String            @id @default(uuid())
-  company      Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  companyId    String
-  location     Location?         @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  locationId   String?
-  title        String
-  description  String?
-  startTime    DateTime
-  endTime      DateTime
-  payRate      Float
-  status       ShiftStatus       @default(open)
-  published    Boolean           @default(false)
-  createdAt    DateTime          @default(now())
-  pharmacist   PharmacistProfile? @relation(fields: [pharmacistId], references: [id], onDelete: SetNull)
-  pharmacistId String?
-
-  seriesId String?
-  series   ShiftSeries? @relation(fields: [seriesId], references: [id])
-
-  @@index([companyId])
-  @@index([locationId])
-  @@index([pharmacistId])
-  @@index([published])
-  @@index([seriesId])
-}
-
 enum ShiftStatus {
   open
   taken
   cancelled
   completed
-}
-
-model Notification {
-  id        String           @id @default(uuid())
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-  title     String
-  message   String
-  type      NotificationType @default(shift)
-  actionUrl String?
-  seen      Boolean          @default(false)
-  createdAt DateTime         @default(now())
-
-  @@index([userId])
 }
 
 enum NotificationType {
@@ -180,70 +224,17 @@ enum NotificationType {
   reminder
 }
 
-model File {
-  id         String   @id @default(uuid())
-  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId     String?
-  company    Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  companyId  String?
-  fileName   String
-  fileUrl    String
-  mimeType   String?
-  size       Int?
-  type       FileType?
-  uploadedAt DateTime @default(now())
-}
-
 enum FileType {
   resume
   logo
   document
-}
-
-model ShiftSeries {
-  id          String   @id @default(uuid())
-  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  companyId   String
-  location    Location?         @relation(fields: [locationId], references: [id], onDelete: SetNull)
-  locationId  String?
-  title       String
-  description String?
-  payRate      Float
-
-  // Time-of-day reference
-  startMinutes Int        // e.g. 540 = 9:00 AM
-  endMinutes   Int
-
-  repeatType  RepeatType
-  daysOfWeek  Int[]       // Only for WEEKLY // 0 = Sunday, 1 = Monday ...
-  startDate   DateTime
-  endDate     DateTime
-
-  excludeWeekends Boolean @default(false)
-  published    Boolean           @default(false)
-  createdAt    DateTime          @default(now())
-
-  shifts Shift[]
+  profilePicture
 }
 
 enum RepeatType {
   NONE
   DAILY
   WEEKLY
-}
-
-model EmailLog {
-  id                 String   @id @default(uuid())
-  recipientEmail     String
-  user               User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId             String?
-  subject            String
-  templateName       String?
-  status             EmailStatus
-  providerMessageId  String?
-  errorMessage       String?
-  metadata           Json?    @db.JsonB
-  createdAt          DateTime @default(now())
 }
 
 enum EmailStatus {

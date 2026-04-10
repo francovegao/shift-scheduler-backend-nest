@@ -1,4 +1,4 @@
-import { Role, User } from "generated/prisma";
+import { Role, User } from '../../../generated/prisma/client';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UserEntity implements User {

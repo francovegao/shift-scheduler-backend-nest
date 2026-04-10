@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CreateShiftSeryDto } from './dto/create-shift-sery.dto';
 import { UpdateShiftSeryDto } from './dto/update-shift-sery.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Prisma } from 'generated/prisma';
+import { Prisma } from '../../generated/prisma/client';
 import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { DeleteShiftSeriesDto } from './dto/delete-shift-sery.dto';
 import { ShiftsService } from 'src/shifts/shifts.service';
@@ -11,23 +11,23 @@ import { ShiftsService } from 'src/shifts/shifts.service';
 export class ShiftSeriesService {
   constructor(
     private prisma: PrismaService,
-    private shiftsService: ShiftsService
+    private shiftsService: ShiftsService,
   ) {}
 
   async create(createShiftSeryDto: CreateShiftSeryDto) {
     const { status, pharmacistId, ...shiftSeriesData } = createShiftSeryDto;
 
     return await this.prisma.$transaction(async (tx) => {
-        const series = await tx.shiftSeries.create({
-          data: shiftSeriesData,
-        });
+      const series = await tx.shiftSeries.create({
+        data: shiftSeriesData,
+      });
       const shifts: Prisma.ShiftCreateManyInput[] = [];
 
       //find company timezone
       const company = await this.prisma.company.findUnique({
-          where: { id: createShiftSeryDto.companyId },
-        });
-      const timezone = company?.timezone || "America/Edmonton";
+        where: { id: createShiftSeryDto.companyId },
+      });
+      const timezone = company?.timezone || 'America/Edmonton';
 
       let current = parseLocalDate(createShiftSeryDto.startDate);
       const endDate = parseLocalDate(createShiftSeryDto.endDate);
@@ -35,24 +35,26 @@ export class ShiftSeriesService {
       current.setHours(0, 0, 0, 0);
       endDate.setHours(0, 0, 0, 0);
 
-      while(current <= endDate){
+      while (current <= endDate) {
         const day = current.getDay(); //0-6
 
-        const isDaily = createShiftSeryDto.repeatType === "DAILY";
-        const isWeekly = createShiftSeryDto.repeatType === "WEEKLY";
+        const isDaily = createShiftSeryDto.repeatType === 'DAILY';
+        const isWeekly = createShiftSeryDto.repeatType === 'WEEKLY';
 
-        const isWeekend = (day === 0 || day === 6);
-        const shouldIncludeDay = isWeekly && createShiftSeryDto.daysOfWeek.includes(day);
-        const isExcludedWeekend = createShiftSeryDto.excludeWeekends && isWeekend;
+        const isWeekend = day === 0 || day === 6;
+        const shouldIncludeDay =
+          isWeekly && createShiftSeryDto.daysOfWeek.includes(day);
+        const isExcludedWeekend =
+          createShiftSeryDto.excludeWeekends && isWeekend;
 
-        if( ( isDaily || shouldIncludeDay) && !isExcludedWeekend){
+        if ((isDaily || shouldIncludeDay) && !isExcludedWeekend) {
           const dateOnly = current.toISOString().slice(0, 10);
 
           //Handle overnight shifts
           const shiftStart = buildUtcFromLocal(
             dateOnly,
             createShiftSeryDto.startMinutes,
-            timezone
+            timezone,
           );
           let shiftEndBase = current;
 
@@ -65,23 +67,22 @@ export class ShiftSeriesService {
           const shiftEnd = buildUtcFromLocal(
             endDateString,
             createShiftSeryDto.endMinutes,
-            timezone
+            timezone,
           );
 
-            shifts.push({
-              companyId: createShiftSeryDto.companyId,
-              locationId: createShiftSeryDto.locationId ?? null,
-              title: createShiftSeryDto.title,
-              description: createShiftSeryDto.description ?? null,
-              payRate: createShiftSeryDto.payRate,
-              startTime: shiftStart,
-              endTime: shiftEnd,
-              published: createShiftSeryDto.published,
-              seriesId: series.id,
-              status: createShiftSeryDto.status ?? 'open',
-              pharmacistId: createShiftSeryDto.pharmacistId ?? null,
-            });
-
+          shifts.push({
+            companyId: createShiftSeryDto.companyId,
+            locationId: createShiftSeryDto.locationId ?? null,
+            title: createShiftSeryDto.title,
+            description: createShiftSeryDto.description ?? null,
+            payRate: createShiftSeryDto.payRate,
+            startTime: shiftStart,
+            endTime: shiftEnd,
+            published: createShiftSeryDto.published,
+            seriesId: series.id,
+            status: createShiftSeryDto.status ?? 'open',
+            pharmacistId: createShiftSeryDto.pharmacistId ?? null,
+          });
         }
 
         current.setDate(current.getDate() + 1);
@@ -104,7 +105,6 @@ export class ShiftSeriesService {
   }
 
   async update(id: string, updateShiftSeryDto: UpdateShiftSeryDto) {
-
     //find reference Shift
     const referenceShift = await this.prisma.shift.findUnique({
       where: { id: updateShiftSeryDto.shiftSeriesData.referenceShiftId },
@@ -118,7 +118,7 @@ export class ShiftSeriesService {
     });
 
     if (!referenceShift) {
-      throw new Error("Reference Shift not found");
+      throw new Error('Reference Shift not found');
     }
 
     //Check if start and end time are being updated
@@ -126,12 +126,15 @@ export class ShiftSeriesService {
     const zonedStartTime = toZonedTime(referenceShift.startTime, timeZone);
     const zonedEndTime = toZonedTime(referenceShift.endTime, timeZone);
 
-    const referenceStartMinutes = (zonedStartTime.getHours() * 60 ) + zonedStartTime.getMinutes();
-    const referenceEndMinutes = (zonedEndTime.getHours() * 60 ) + zonedEndTime.getMinutes();
+    const referenceStartMinutes =
+      zonedStartTime.getHours() * 60 + zonedStartTime.getMinutes();
+    const referenceEndMinutes =
+      zonedEndTime.getHours() * 60 + zonedEndTime.getMinutes();
 
     //If no change in minutes remove startTime and endTime from updateShiftDto
     if (updateShiftSeryDto.shiftData.startTime !== undefined) {
-      const [hours, minutes] = updateShiftSeryDto.shiftData.startTime.split(':');
+      const [hours, minutes] =
+        updateShiftSeryDto.shiftData.startTime.split(':');
       const incomingMinutes = parseInt(hours, 10) * 60 + parseInt(minutes, 10);
       if (referenceStartMinutes === incomingMinutes) {
         delete updateShiftSeryDto.shiftData.startTime;
@@ -147,7 +150,7 @@ export class ShiftSeriesService {
     }
 
     const whereFilter: Prisma.ShiftWhereInput =
-      updateShiftSeryDto.shiftSeriesData.scope === "future"
+      updateShiftSeryDto.shiftSeriesData.scope === 'future'
         ? {
             seriesId: id,
             status: { notIn: ['completed', 'cancelled'] },
@@ -159,73 +162,75 @@ export class ShiftSeriesService {
             startTime: { gte: new Date() },
           };
 
-      const shifts = await this.prisma.shift.findMany({
-        where: whereFilter,
-      });
+    const shifts = await this.prisma.shift.findMany({
+      where: whereFilter,
+    });
 
-      const updatedShifts: any[] = [];
+    const updatedShifts: any[] = [];
 
-      for (const shift of shifts) {
+    for (const shift of shifts) {
+      let newStartTime = shift.startTime;
+      let newEndTime = shift.endTime;
 
-        let newStartTime = shift.startTime;
-        let newEndTime = shift.endTime;
+      if (updateShiftSeryDto.shiftData.startTime !== undefined) {
+        const zonedStart = toZonedTime(shift.startTime, timeZone);
 
-        if (updateShiftSeryDto.shiftData.startTime !== undefined) {
-          const zonedStart = toZonedTime(shift.startTime, timeZone);
+        const [hours, minutes] =
+          updateShiftSeryDto.shiftData.startTime.split(':');
 
-          const [hours, minutes] = updateShiftSeryDto.shiftData.startTime.split(':');
+        zonedStart.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
-          zonedStart.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-
-          newStartTime = zonedStart;
-        }
-
-        if (updateShiftSeryDto.shiftData.endTime !== undefined) {
-          const zonedEnd = toZonedTime(shift.endTime, timeZone);
-
-          const [hours, minutes] = updateShiftSeryDto.shiftData.endTime.split(':');
-
-          zonedEnd.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-
-          newEndTime = zonedEnd;
-        }
-
-        //If Overnight shift
-        if (updateShiftSeryDto.shiftData.endTime !== undefined &&
-            updateShiftSeryDto.shiftData.startTime !== undefined){
-          if (updateShiftSeryDto.shiftData.endTime < updateShiftSeryDto.shiftData.startTime) {
-            newEndTime.setDate(newEndTime.getDate() + 1);
-          }
-        }
-
-        const updated = await this.shiftsService.update(
-          shift.id,
-          {
-            ...updateShiftSeryDto.shiftData,
-            startTime: newStartTime.toISOString(),
-            endTime: newEndTime.toISOString(),
-            companyId: shift.companyId
-          }
-        );
-
-        updatedShifts.push(updated);
+        newStartTime = zonedStart;
       }
 
-      return updatedShifts;
+      if (updateShiftSeryDto.shiftData.endTime !== undefined) {
+        const zonedEnd = toZonedTime(shift.endTime, timeZone);
+
+        const [hours, minutes] =
+          updateShiftSeryDto.shiftData.endTime.split(':');
+
+        zonedEnd.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+        newEndTime = zonedEnd;
+      }
+
+      //If Overnight shift
+      if (
+        updateShiftSeryDto.shiftData.endTime !== undefined &&
+        updateShiftSeryDto.shiftData.startTime !== undefined
+      ) {
+        if (
+          updateShiftSeryDto.shiftData.endTime <
+          updateShiftSeryDto.shiftData.startTime
+        ) {
+          newEndTime.setDate(newEndTime.getDate() + 1);
+        }
+      }
+
+      const updated = await this.shiftsService.update(shift.id, {
+        ...updateShiftSeryDto.shiftData,
+        startTime: newStartTime.toISOString(),
+        endTime: newEndTime.toISOString(),
+        companyId: shift.companyId,
+      });
+
+      updatedShifts.push(updated);
+    }
+
+    return updatedShifts;
   }
 
   async remove(id: string, deleteShiftSeriesDto: DeleteShiftSeriesDto) {
-
     //find reference Shift
     const referenceShift = await this.prisma.shift.findUnique({
       where: { id: deleteShiftSeriesDto.referenceShiftId },
     });
 
     if (!referenceShift) {
-      throw new Error("Reference Shift not found");
+      throw new Error('Reference Shift not found');
     }
 
-    if(deleteShiftSeriesDto.scope==="future"){
+    if (deleteShiftSeriesDto.scope === 'future') {
       await this.prisma.shift.deleteMany({
         where: {
           seriesId: id,
@@ -237,7 +242,7 @@ export class ShiftSeriesService {
           },
         },
       });
-    }else if(deleteShiftSeriesDto.scope==="all"){
+    } else if (deleteShiftSeriesDto.scope === 'all') {
       await this.prisma.shift.deleteMany({
         where: {
           seriesId: id,
@@ -251,19 +256,19 @@ export class ShiftSeriesService {
       });
     }
 
-      //Check if shiftSeries is empty
-      const shiftSerie = await this.prisma.shiftSeries.findUnique({
-        where: { id },
-        include: {
-          shifts: true
-        },
-      });
+    //Check if shiftSeries is empty
+    const shiftSerie = await this.prisma.shiftSeries.findUnique({
+      where: { id },
+      include: {
+        shifts: true,
+      },
+    });
 
-      if(shiftSerie?.shifts.length === 0){
-        await this.prisma.shiftSeries.delete({
-          where: { id },
-        });
-      }
+    if (shiftSerie?.shifts.length === 0) {
+      await this.prisma.shiftSeries.delete({
+        where: { id },
+      });
+    }
 
     return shiftSerie;
   }
@@ -272,7 +277,7 @@ export class ShiftSeriesService {
 function buildUtcFromLocal(
   dateStr: string,
   totalMinutes: number,
-  timezone: string
+  timezone: string,
 ): Date {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
@@ -283,7 +288,7 @@ function buildUtcFromLocal(
 }
 
 function parseLocalDate(dateStr: string): Date {
-  const dateOnly = dateStr.split("T")[0];
-  const [year, month, day] = dateOnly.split("-").map(Number);
+  const dateOnly = dateStr.split('T')[0];
+  const [year, month, day] = dateOnly.split('-').map(Number);
   return new Date(year, month - 1, day);
 }

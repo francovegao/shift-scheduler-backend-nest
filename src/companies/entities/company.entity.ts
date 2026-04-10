@@ -1,11 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Company } from 'generated/prisma';
+import { Company } from '../../../generated/prisma/client';
 
 export class CompanyEntity implements Company {
   @ApiProperty()
   id: string;
 
-  @ApiProperty({ required: false})
+  @ApiProperty({ required: false })
   approved: boolean;
 
   @ApiProperty()
@@ -44,10 +44,9 @@ export class CompanyEntity implements Company {
   @ApiProperty({ required: false, nullable: true })
   contactEmail: string | null;
 
-  @ApiProperty({ required: false})
+  @ApiProperty({ required: false })
   timezone: string;
 
   @ApiProperty()
   createdAt: Date;
 }
-

@@ -1,5 +1,8 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { Notification, NotificationType } from "generated/prisma";
+import {
+  Notification,
+  NotificationType,
+} from '../../../generated/prisma/client';
 
 export class NotificationEntity implements Notification {
     @ApiProperty()

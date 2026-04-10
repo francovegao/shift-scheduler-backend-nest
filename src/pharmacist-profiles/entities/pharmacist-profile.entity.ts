@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PharmacistProfile } from 'generated/prisma';
+import { PharmacistProfile } from '../../../generated/prisma/client';
 
 export class PharmacistProfileEntity implements PharmacistProfile {
   @ApiProperty()

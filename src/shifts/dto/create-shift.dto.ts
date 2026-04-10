@@ -1,6 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MinLength, IsEmail, IsBoolean, IsOptional, IsDate, IsNumber, IsDateString, IsEnum } from 'class-validator';
-import { ShiftStatus } from 'generated/prisma';
+import {
+  IsNotEmpty,
+  IsString,
+  IsBoolean,
+  IsOptional,
+  IsNumber,
+  IsEnum,
+} from 'class-validator';
+import { ShiftStatus } from '../../../generated/prisma/client';
 
 export class CreateShiftDto {
   @IsString()
@@ -53,5 +60,4 @@ export class CreateShiftDto {
   @IsOptional()
   @ApiProperty({ required: false })
   pharmacistId?: string;
-
 }

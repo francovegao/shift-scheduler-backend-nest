@@ -1,0 +1,11 @@
+[
+  {
+    "origin": ["*"],
+    "method": ["PUT", "POST", "OPTIONS"],
+    "responseHeader": [
+      "Content-Type",
+      "x-goog-content-length-range"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

@@ -1,6 +1,16 @@
-import { ApiProperty } from "@nestjs/swagger";
-import { IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
-import { RepeatType, ShiftStatus } from "generated/prisma";
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+} from 'class-validator';
+import { RepeatType, ShiftStatus } from '../../../generated/prisma/client';
 
 export class CreateShiftSeryDto {
   @IsString()
