@@ -11,29 +11,32 @@ export class CompaniesService {
 
   //CRUD operations
   create(createCompanyDto: CreateCompanyDto) {
+    const timezone = getTimezoneFromProvince(createCompanyDto.province ?? 'AB');
 
-    const timezone = getTimezoneFromProvince(createCompanyDto.province ?? "AB");
-  
     return this.prisma.company.create({
-        data:{
-          ...createCompanyDto,
-          timezone,
-    },
-   });
+      data: {
+        ...createCompanyDto,
+        timezone,
+      },
+    });
   }
 
   async findAll(
     paginationDto: PaginationDto,
     search?: string,
     sortBy?: string,
-    sortOrder?: "asc" | "desc",
-    ) {
-    const { page = 1 , limit = 10 } = paginationDto;
+    sortOrder?: 'asc' | 'desc',
+  ) {
+    const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
     const query = search;
 
     const where: any = {};
+
+    const include: any = {
+      files: true,
+    };
 
     if (query) {
       where.OR = [
@@ -52,34 +55,35 @@ export class CompaniesService {
       ];
     }
 
-    
     //Sort filters
     let orderBy: any = [];
 
-    if(sortBy){
-      const direction = sortOrder === "desc" ? "desc" : "asc";
+    if (sortBy) {
+      const direction = sortOrder === 'desc' ? 'desc' : 'asc';
 
-      switch(sortBy){
-        case "name":
+      switch (sortBy) {
+        case 'name':
           orderBy = [{ name: direction }];
           break;
-        case "legalName":
+        case 'legalName':
           orderBy = [{ legalName: direction }];
           break;
         default:
-          orderBy = [{ createdAt: "desc" }];
+          orderBy = [{ createdAt: 'desc' }];
       }
-    }else{
-      orderBy = [{ createdAt: "desc" }];
+    } else {
+      orderBy = [{ createdAt: 'desc' }];
     }
 
-    const [companies, total] = await Promise.all([this.prisma.company.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy,
-    }),
-    this.prisma.company.count({where}),
+    const [companies, total] = await Promise.all([
+      this.prisma.company.findMany({
+        where,
+        include,
+        skip,
+        take: limit,
+        orderBy,
+      }),
+      this.prisma.company.count({ where }),
     ]);
 
     const response = {
@@ -89,58 +93,59 @@ export class CompaniesService {
         currentPage: page,
         itemsPerPage: limit,
         totalPages: Math.ceil(total / limit),
-      }
+      },
     };
 
     return response;
   }
 
   async findOne(id: string) {
-
-    const company = await this.prisma.company.findUnique({ 
+    const company = await this.prisma.company.findUnique({
       where: { id },
       include: {
         managers: true,
         locations: true,
         shifts: true,
         pharmacistPermissions: true,
-      }
-     });
+        files: true,
+      },
+    });
 
     if (!company) {
-        throw new NotFoundException(`Company with ID "${id}" not found.`);
+      throw new NotFoundException(`Company with ID "${id}" not found.`);
     }
 
-    const [openShifts, takenShifts, completedShifts, cancelledShifts] = await this.prisma.$transaction([
-      this.prisma.shift.count({
+    const [openShifts, takenShifts, completedShifts, cancelledShifts] =
+      await this.prisma.$transaction([
+        this.prisma.shift.count({
           where: {
-          companyId: company.id,
-          locationId: null,
-          status: 'open',
-        },
-      }),
-      this.prisma.shift.count({
+            companyId: company.id,
+            locationId: null,
+            status: 'open',
+          },
+        }),
+        this.prisma.shift.count({
           where: {
-          companyId: company.id,
-          locationId: null,
-          status: 'taken',
-        },
-      }),
-      this.prisma.shift.count({
+            companyId: company.id,
+            locationId: null,
+            status: 'taken',
+          },
+        }),
+        this.prisma.shift.count({
           where: {
-          companyId: company.id,
-          locationId: null,
-          status: 'completed',
-        },
-      }),
-      this.prisma.shift.count({
+            companyId: company.id,
+            locationId: null,
+            status: 'completed',
+          },
+        }),
+        this.prisma.shift.count({
           where: {
-          companyId: company.id,
-          locationId: null,
-          status: 'cancelled',
-        },
-      }),
-    ]);
+            companyId: company.id,
+            locationId: null,
+            status: 'cancelled',
+          },
+        }),
+      ]);
 
     const currentYear = new Date().getFullYear();
     const startOfYear = `${currentYear}-01-01`;
@@ -164,14 +169,14 @@ export class CompaniesService {
         totalCompleted: completedShifts,
         totalCancelled: cancelledShifts,
         monthlyCounts,
-      }
+      },
     };
 
     return response;
   }
 
   async findShifts(id: string) {
-    const company = await this.prisma.company.findUnique({ 
+    const company = await this.prisma.company.findUnique({
       where: { id },
       include: {
         shifts: {
@@ -183,19 +188,19 @@ export class CompaniesService {
                 user: true,
               },
             },
-          }
+          },
         },
-      }
-     });
+      },
+    });
 
-     return {
-      data: company?.shifts
-     }
+    return {
+      data: company?.shifts,
+    };
   }
 
   update(id: string, updateCompanyDto: UpdateCompanyDto) {
     const data: any = { ...updateCompanyDto };
-    
+
     if (updateCompanyDto.province) {
       data.timezone = getTimezoneFromProvince(updateCompanyDto.province);
     }
@@ -209,6 +214,5 @@ export class CompaniesService {
   }
 }
 function getTimezoneFromProvince(province: string) {
-  return PROVINCE_TIMEZONE_MAP[province] ?? "America/Edmonton";
+  return PROVINCE_TIMEZONE_MAP[province] ?? 'America/Edmonton';
 }
-

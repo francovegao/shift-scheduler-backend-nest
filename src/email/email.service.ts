@@ -64,7 +64,7 @@ export class EmailService {
 
     try {
       const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <no-reply@shifthappens.curisrx.ca>',
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
         to: [to],
         subject: subject,
         html: htmlContent,
@@ -88,9 +88,12 @@ export class EmailService {
         subject,
         status: 'failed',
         templateName,
-        errorMessage: error.message,
+        errorMessage: getErrorMessage(error),
       });
-      this.logger.error('Unexpected error sending email', error.stack);
+      this.logger.error(
+        'Unexpected error sending email',
+        (error as Error).stack,
+      );
       throw error;
     }
   }
@@ -122,7 +125,7 @@ export class EmailService {
 
     try {
       const batchEmails = managersEmails.map((email) => ({
-        from: 'Shift Happens <no-reply@shifthappens.curisrx.ca>',
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
         to: [email],
         subject: subject,
         html: htmlContent,
@@ -154,11 +157,14 @@ export class EmailService {
             subject,
             status: 'failed',
             templateName,
-            errorMessage: error.message,
+            errorMessage: getErrorMessage(error),
           }),
         ),
       );
-      this.logger.error('Unexpected error sending email', error.stack);
+      this.logger.error(
+        'Unexpected error sending email',
+        (error as Error).stack,
+      );
       throw error;
     }
   }
@@ -185,7 +191,7 @@ export class EmailService {
 
     try {
       const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <no-reply@shifthappens.curisrx.ca>',
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
         to: [to],
         subject: subject,
         html: htmlContent,
@@ -217,10 +223,13 @@ export class EmailService {
         subject,
         status: 'failed',
         templateName,
-        errorMessage: error.message,
+        errorMessage: getErrorMessage(error),
       });
 
-      this.logger.error('Unexpected error sending email', error.stack);
+      this.logger.error(
+        'Unexpected error sending email',
+        (error as Error).stack,
+      );
       throw error;
     }
   }
@@ -254,7 +263,7 @@ export class EmailService {
 
     try {
       const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <no-reply@shifthappens.curisrx.ca>',
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
         to: [to],
         subject: subject,
         html: htmlContent,
@@ -278,9 +287,12 @@ export class EmailService {
         subject,
         status: 'failed',
         templateName,
-        errorMessage: error.message,
+        errorMessage: getErrorMessage(error),
       });
-      this.logger.error('Unexpected error sending email', error.stack);
+      this.logger.error(
+        'Unexpected error sending email',
+        (error as Error).stack,
+      );
       throw error;
     }
   }
@@ -317,7 +329,7 @@ export class EmailService {
 
     try {
       const batchEmails = adminAndContactPersonEmails.map((email) => ({
-        from: 'Shift Happens <no-reply@shifthappens.curisrx.ca>',
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
         to: [email],
         subject: subject,
         html: htmlContent,
@@ -349,16 +361,19 @@ export class EmailService {
             subject,
             status: 'failed',
             templateName,
-            errorMessage: error.message,
+            errorMessage: getErrorMessage(error),
           }),
         ),
       );
-      this.logger.error('Unexpected error sending email', error.stack);
+      this.logger.error(
+        'Unexpected error sending email',
+        (error as Error).stack,
+      );
       throw error;
     }
   }
 
-  //Send this email when an assigned shift changes pharmacistId or it is deleted
+  //Send this email when an assigned shift changes pharmacistId or is deleted
   async emailPharmacistShiftCancelled(to: string, shift: ShiftWithCompany) {
     const templateName = 'taken_shift_cancelled';
     const subject = `Shift Cancelled at ${shift.company.name}`;
@@ -381,7 +396,7 @@ export class EmailService {
 
     try {
       const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <no-reply@shifthappens.curisrx.ca>',
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
         to: [to],
         subject: subject,
         html: htmlContent,
@@ -405,9 +420,208 @@ export class EmailService {
         subject,
         status: 'failed',
         templateName,
-        errorMessage: error.message,
+        errorMessage: getErrorMessage(error),
       });
-      this.logger.error('Unexpected error sending email', error.stack);
+      this.logger.error(
+        'Unexpected error sending email',
+        (error as Error).stack,
+      );
+      throw error;
+    }
+  }
+
+  //Send this email when assigned shifts that belong to a series are updated
+  async emailPharmacistsShiftSeriesUpdated(
+    pharmacistsEmails: string[],
+    shifts: ShiftWithPharmacist[],
+  ) {
+    const templateName = 'taken_shift_series_updated';
+    const companyName = shifts[0]?.company?.name || 'pharmacy';
+    const subject = `Multipe Shifts Updated at ${companyName}`;
+
+    const shiftsByEmail = shifts.reduce(
+      (acc, shift) => {
+        const email = shift.pharmacist?.user.email;
+        if (email) {
+          if (!acc[email]) acc[email] = [];
+          acc[email].push(shift);
+        }
+        return acc;
+      },
+      {} as Record<string, ShiftWithPharmacist[]>,
+    );
+
+    const generateHtmlContent = (email: string): string => {
+      const userShifts = shiftsByEmail[email] || [];
+
+      const shiftListHtml = userShifts
+        .map((shift) => {
+          const shiftDate = formatDate(shift.startTime, shift.company.timezone);
+          const startTime = formatTime(shift.startTime, shift.company.timezone);
+          const endTime = formatTime(shift.endTime, shift.company.timezone);
+
+          return `
+        <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #f44336; background: #fafafa;">
+          <p style="margin: 0;">Date: <strong>${shiftDate}</strong></p>
+          <p style="margin: 0;">Time: <strong>${startTime} - ${endTime}</strong></p>
+          <p style="margin: 0;">Notes: ${shift.title || 'N/A'}</p>
+          <p style="margin: 0;">${shift.description}</p>
+        </div>
+      `;
+        })
+        .join('');
+
+      return `<p>Your assigned shifts at  <strong>${companyName}</strong> have been updated.</p>
+              <p>Updated Shifts Information<br>
+              ${shiftListHtml}
+              <p>To view your updated schedule, visit 
+              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
+              <p>Thank you,<br>
+              Shift Happens Team</p>`;
+    };
+
+    try {
+      const emailsToProcess = Object.keys(shiftsByEmail);
+      const batchEmails = emailsToProcess.map((email) => ({
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
+        to: [email],
+        subject: subject,
+        html: generateHtmlContent(email),
+      }));
+
+      if (batchEmails.length === 0) return;
+
+      const { data, error } = await this.resend.batch.send(batchEmails);
+
+      if (error) throw new Error(JSON.stringify(error));
+
+      await Promise.all(
+        emailsToProcess.map((to, index) =>
+          this.logEmail({
+            to,
+            subject,
+            status: 'sent',
+            templateName,
+            providerMessageId: data?.data?.[index]?.id,
+          }),
+        ),
+      );
+
+      this.logger.log('Emails sent successfully');
+      return data;
+    } catch (error) {
+      await Promise.all(
+        pharmacistsEmails.map((to) =>
+          this.logEmail({
+            to,
+            subject,
+            status: 'failed',
+            templateName,
+            errorMessage: getErrorMessage(error),
+          }),
+        ),
+      );
+      this.logger.error(
+        'Unexpected error sending emails',
+        (error as Error).stack,
+      );
+      throw error;
+    }
+  }
+
+  //Send this email when multiple assigned shifts that belongs to a series change pharmacistId or are deleted
+  async emailPharmacistsShiftSeriesCancelled(
+    pharmacistsEmails: string[],
+    shifts: ShiftWithPharmacist[],
+  ) {
+    const templateName = 'taken_shift_series_cancelled';
+    const companyName = shifts[0]?.company?.name || 'pharmacy';
+    const subject = `Multipe Shifts Cancelled at ${companyName}`;
+
+    const shiftsByEmail = shifts.reduce(
+      (acc, shift) => {
+        const email = shift.pharmacist?.user.email;
+        if (email) {
+          if (!acc[email]) acc[email] = [];
+          acc[email].push(shift);
+        }
+        return acc;
+      },
+      {} as Record<string, ShiftWithPharmacist[]>,
+    );
+
+    const generateHtmlContent = (email: string): string => {
+      const userShifts = shiftsByEmail[email] || [];
+
+      const shiftListHtml = userShifts
+        .map((shift) => {
+          const shiftDate = formatDate(shift.startTime, shift.company.timezone);
+          const startTime = formatTime(shift.startTime, shift.company.timezone);
+          const endTime = formatTime(shift.endTime, shift.company.timezone);
+
+          return `
+        <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #f44336; background: #fafafa;">
+          <p style="margin: 0;">Date: <strong>${shiftDate}</strong></p>
+          <p style="margin: 0;">Time: <strong>${startTime} - ${endTime}</strong></p>
+          <p style="margin: 0;">Notes: ${shift.title || 'N/A'}</p>
+        </div>
+      `;
+        })
+        .join('');
+
+      return `<p>The following shifts at <strong>${companyName}</strong> have been cancelled.</p>
+              ${shiftListHtml}
+              <p>To view your updated schedule, visit 
+              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
+              <p>Thank you,<br>
+              Shift Happens Team</p>`;
+    };
+
+    try {
+      const emailsToProcess = Object.keys(shiftsByEmail);
+      const batchEmails = emailsToProcess.map((email) => ({
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
+        to: [email],
+        subject: subject,
+        html: generateHtmlContent(email),
+      }));
+
+      if (batchEmails.length === 0) return;
+
+      const { data, error } = await this.resend.batch.send(batchEmails);
+
+      if (error) throw new Error(JSON.stringify(error));
+
+      await Promise.all(
+        emailsToProcess.map((to, index) =>
+          this.logEmail({
+            to,
+            subject,
+            status: 'sent',
+            templateName,
+            providerMessageId: data?.data?.[index]?.id,
+          }),
+        ),
+      );
+
+      this.logger.log('Emails sent successfully');
+      return data;
+    } catch (error) {
+      await Promise.all(
+        pharmacistsEmails.map((to) =>
+          this.logEmail({
+            to,
+            subject,
+            status: 'failed',
+            templateName,
+            errorMessage: getErrorMessage(error),
+          }),
+        ),
+      );
+      this.logger.error(
+        'Unexpected error sending emails',
+        (error as Error).stack,
+      );
       throw error;
     }
   }
@@ -427,7 +641,7 @@ export class EmailService {
 
     try {
       const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <no-reply@shifthappens.curisrx.ca>',
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
         to: [to],
         subject: subject,
         html: htmlContent,
@@ -451,9 +665,12 @@ export class EmailService {
         subject,
         status: 'failed',
         templateName,
-        errorMessage: error.message,
+        errorMessage: getErrorMessage(error),
       });
-      this.logger.error('Unexpected error sending email', error.stack);
+      this.logger.error(
+        'Unexpected error sending email',
+        (error as Error).stack,
+      );
       throw error;
     }
   }
@@ -531,4 +748,8 @@ function getFullAddress(
 
   const parts = [address, city, province, postalCode].filter(Boolean);
   return parts.length > 0 ? parts.join(', ') : 'No address info';
+}
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return String(error);
 }

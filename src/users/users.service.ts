@@ -148,6 +148,7 @@ export class UsersService {
     };
 
     const include: any = {
+      files: true,
       pharmacistProfile: {
         include: {
           companyPermissions: true,
@@ -218,10 +219,15 @@ export class UsersService {
         pharmacistProfile: true,
         company: {
           include: {
+            files: true,
             locations: true,
           },
         },
-        allowedCompanies: true,
+        allowedCompanies: {
+          include: {
+            files: true,
+          },
+        },
         location: true,
       },
     });

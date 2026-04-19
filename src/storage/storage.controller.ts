@@ -3,6 +3,7 @@ import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { StorageService } from './storage.service';
 import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 import { ApiBearerAuth } from '@nestjs/swagger';
+import { FileType } from 'generated/prisma/enums';
 
 @Controller('uploads')
 export class StorageController {
@@ -11,10 +12,18 @@ export class StorageController {
   @Post('signed-url')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
-  getSignedUploadUrl(@Body() body: { fileName: string; contentType: string }) {
+  getSignedUploadUrl(
+    @Body()
+    body: {
+      fileName: string;
+      contentType: string;
+      expectedFileType: FileType;
+    },
+  ) {
     return this.storageService.getSignedUploadUrl(
       body.fileName,
       body.contentType,
+      body.expectedFileType,
     );
   }
 

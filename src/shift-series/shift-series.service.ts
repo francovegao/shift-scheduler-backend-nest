@@ -6,12 +6,14 @@ import { Prisma } from '../../generated/prisma/client';
 import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { DeleteShiftSeriesDto } from './dto/delete-shift-sery.dto';
 import { ShiftsService } from 'src/shifts/shifts.service';
+import { EmailService } from 'src/email/email.service';
 
 @Injectable()
 export class ShiftSeriesService {
   constructor(
     private prisma: PrismaService,
     private shiftsService: ShiftsService,
+    private emailService: EmailService,
   ) {}
 
   async create(createShiftSeryDto: CreateShiftSeryDto) {
@@ -207,14 +209,35 @@ export class ShiftSeriesService {
         }
       }
 
-      const updated = await this.shiftsService.update(shift.id, {
-        ...updateShiftSeryDto.shiftData,
-        startTime: newStartTime.toISOString(),
-        endTime: newEndTime.toISOString(),
-        companyId: shift.companyId,
-      });
+      const updated = await this.shiftsService.update(
+        shift.id,
+        {
+          ...updateShiftSeryDto.shiftData,
+          startTime: newStartTime.toISOString(),
+          endTime: newEndTime.toISOString(),
+          companyId: shift.companyId,
+        },
+        true,
+      );
 
       updatedShifts.push(updated);
+    }
+
+    const updatedAssignedShifts = updatedShifts.filter(
+      (s) => s.status === 'taken' && s.pharmacistId,
+    );
+
+    if (updatedAssignedShifts.length > 0) {
+      const pharmacistsEmailsToNotify = [
+        ...new Set(updatedAssignedShifts.map((s) => s.pharmacist?.user.email)),
+      ].filter(Boolean);
+
+      if (pharmacistsEmailsToNotify.length > 0) {
+        this.emailService.emailPharmacistsShiftSeriesUpdated(
+          pharmacistsEmailsToNotify,
+          updatedAssignedShifts,
+        );
+      }
     }
 
     return updatedShifts;
@@ -230,30 +253,67 @@ export class ShiftSeriesService {
       throw new Error('Reference Shift not found');
     }
 
-    if (deleteShiftSeriesDto.scope === 'future') {
-      await this.prisma.shift.deleteMany({
-        where: {
-          seriesId: id,
-          startTime: {
-            gte: referenceShift.startTime,
-          },
-          status: {
-            not: 'completed',
+    const deleteFilter: Prisma.ShiftWhereInput = {
+      seriesId: id,
+      startTime: {
+        gte:
+          deleteShiftSeriesDto.scope === 'future'
+            ? referenceShift.startTime
+            : new Date(),
+      },
+      status: {
+        notIn: ['completed', 'cancelled'],
+      },
+    };
+
+    const assignedShifts = await this.prisma.shift.findMany({
+      where: {
+        ...deleteFilter,
+        status: 'taken',
+        pharmacistId: { not: null },
+      },
+      include: {
+        company: {
+          select: {
+            name: true,
+            timezone: true,
+            contactName: true,
+            contactEmail: true,
           },
         },
-      });
-    } else if (deleteShiftSeriesDto.scope === 'all') {
-      await this.prisma.shift.deleteMany({
-        where: {
-          seriesId: id,
-          startTime: {
-            gte: new Date(),
-          },
-          status: {
-            not: 'completed',
+        pharmacist: {
+          include: {
+            user: {
+              select: {
+                email: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
           },
         },
-      });
+      },
+    });
+
+    //Delete shifts
+    await this.prisma.shift.deleteMany({
+      where: deleteFilter,
+    });
+
+    //Notify pharmacists
+    const pharmacistsEmailsToNotify = [
+      ...new Set(
+        assignedShifts
+          .map((s) => s.pharmacist?.user.email)
+          .filter((email): email is string => !!email),
+      ),
+    ];
+
+    if (pharmacistsEmailsToNotify.length > 0) {
+      this.emailService.emailPharmacistsShiftSeriesCancelled(
+        pharmacistsEmailsToNotify,
+        assignedShifts,
+      );
     }
 
     //Check if shiftSeries is empty

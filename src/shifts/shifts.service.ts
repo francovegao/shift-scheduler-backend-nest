@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -15,17 +19,18 @@ export class ShiftsService {
   constructor(
     private prisma: PrismaService,
     private eventEmitter: EventEmitter2,
-    private emailService: EmailService) {}
+    private emailService: EmailService,
+  ) {}
 
   //CRUD operations
   async create(createShiftDto: CreateShiftDto) {
     //find company timezone
     const company = await this.prisma.company.findUnique({
-        where: { id: createShiftDto.companyId },
-        select: { timezone: true },
-      });
+      where: { id: createShiftDto.companyId },
+      select: { timezone: true },
+    });
 
-    const timezone = company?.timezone ?? "America/Edmonton";
+    const timezone = company?.timezone ?? 'America/Edmonton';
 
     const startUtc = fromZonedTime(createShiftDto.startTime, timezone);
     const endUtc = fromZonedTime(createShiftDto.endTime, timezone);
@@ -34,7 +39,7 @@ export class ShiftsService {
       ...createShiftDto,
       startTime: startUtc.toISOString(),
       endTime: endUtc.toISOString(),
-    }
+    };
 
     return this.prisma.shift.create({ data: createShiftDto });
   }
@@ -54,9 +59,9 @@ export class ShiftsService {
     selectedStatus?: string,
     published?: string,
     sortBy?: string,
-    sortOrder?: "asc" | "desc",
+    sortOrder?: 'asc' | 'desc',
   ) {
-    const { page = 1 , limit = 10 } = paginationDto;
+    const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
     // Build dynamic filters
@@ -66,16 +71,18 @@ export class ShiftsService {
 
     // Role-based scoping
     if (currentUser.role === 'pharmacy_manager') {
-
       // Get manager allowed companies
       const manager = await this.prisma.user.findUnique({
         where: { id: currentUser.id },
         include: { allowedCompanies: true },
       });
 
-      if(companyId && manager?.allowedCompanies.find(c => c.id === companyId)){
+      if (
+        companyId &&
+        manager?.allowedCompanies.find((c) => c.id === companyId)
+      ) {
         where.AND.push({ companyId });
-      }else{
+      } else {
         where.AND.push({ companyId: currentUser.companyId });
       }
     }
@@ -91,27 +98,27 @@ export class ShiftsService {
       });
 
       if (!pharmacist) {
-        throw new Error("Pharmacist profile not found");
+        throw new Error('Pharmacist profile not found');
       }
 
-      if(pharmacist.canViewAllCompanies){
+      if (pharmacist.canViewAllCompanies) {
         where.AND.push({ status: 'open', published: true });
-      }else{
+      } else {
         const allowedCompanyIds = pharmacist.companyPermissions.map(
-          (p) => p.companyId
+          (p) => p.companyId,
         );
 
         where.AND.push({
           status: 'open',
           published: true,
           companyId: { in: allowedCompanyIds },
-          });
+        });
       }
     }
 
     // External filter
     if (companyId) {
-    where.AND.push({ companyId });
+      where.AND.push({ companyId });
     }
     if (locationId) {
       where.AND.push({ locationId });
@@ -131,32 +138,32 @@ export class ShiftsService {
           user: true,
         },
       },
-    }
+    };
 
     //Sort filters
     let orderBy: any = [];
 
-    if(sortBy){
-      const direction = sortOrder === "desc" ? "desc" : "asc";
+    if (sortBy) {
+      const direction = sortOrder === 'desc' ? 'desc' : 'asc';
 
-      switch(sortBy){
-        case "name":
+      switch (sortBy) {
+        case 'name':
           orderBy = [
             { company: { name: direction } },
             { location: { name: direction } },
           ];
           break;
-        case "payRate":
+        case 'payRate':
           orderBy = [{ payRate: direction }];
           break;
-        case "startTime":
+        case 'startTime':
           orderBy = [{ startTime: direction }];
           break;
         default:
-          orderBy = [{ createdAt: "desc" }];
+          orderBy = [{ createdAt: 'desc' }];
       }
-    }else{
-      orderBy = [{ createdAt: "desc" }];
+    } else {
+      orderBy = [{ createdAt: 'desc' }];
     }
 
     //Search filter
@@ -165,38 +172,54 @@ export class ShiftsService {
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
-          { company : { name: {contains: search, mode: 'insensitive' }}},
-          { company : { email: {contains: search, mode: 'insensitive' }}},
-          { company : { phone: {contains: search, mode: 'insensitive' }}},
-          { company : { address: {contains: search, mode: 'insensitive' }}},
-          { company : { city: {contains: search, mode: 'insensitive' }}},
-          { location : { name: {contains: search, mode: 'insensitive' }}},
-          { location : { email: {contains: search, mode: 'insensitive' }}},
-          { location : { phone: {contains: search, mode: 'insensitive' }}},
-          { location : { address: {contains: search, mode: 'insensitive' }}},
-          { location : { city: {contains: search, mode: 'insensitive' }}},
-          { pharmacist : { user: { firstName: {contains: search, mode: 'insensitive' }}}},
-          { pharmacist : { user: { lastName: {contains: search, mode: 'insensitive' }}}},
-          { pharmacist : { user: { email: {contains: search, mode: 'insensitive' }}}},
-          { pharmacist : { user: { phone: {contains: search, mode: 'insensitive' }}}},
+          { company: { name: { contains: search, mode: 'insensitive' } } },
+          { company: { email: { contains: search, mode: 'insensitive' } } },
+          { company: { phone: { contains: search, mode: 'insensitive' } } },
+          { company: { address: { contains: search, mode: 'insensitive' } } },
+          { company: { city: { contains: search, mode: 'insensitive' } } },
+          { location: { name: { contains: search, mode: 'insensitive' } } },
+          { location: { email: { contains: search, mode: 'insensitive' } } },
+          { location: { phone: { contains: search, mode: 'insensitive' } } },
+          { location: { address: { contains: search, mode: 'insensitive' } } },
+          { location: { city: { contains: search, mode: 'insensitive' } } },
+          {
+            pharmacist: {
+              user: { firstName: { contains: search, mode: 'insensitive' } },
+            },
+          },
+          {
+            pharmacist: {
+              user: { lastName: { contains: search, mode: 'insensitive' } },
+            },
+          },
+          {
+            pharmacist: {
+              user: { email: { contains: search, mode: 'insensitive' } },
+            },
+          },
+          {
+            pharmacist: {
+              user: { phone: { contains: search, mode: 'insensitive' } },
+            },
+          },
         ],
       });
     }
 
     //Status Filter
-    if(selectedStatus==="openAndTaken"){
+    if (selectedStatus === 'openAndTaken') {
       where.AND.push({
-        status:  { in: ["open", "taken"] },
+        status: { in: ['open', 'taken'] },
       });
-    }else if(selectedStatus) {
+    } else if (selectedStatus) {
       where.AND.push({
         status: { equals: selectedStatus },
       });
     }
 
-
     //Published Filter
-    const isPublished = published === 'true' ? true : published === 'false' ? false : undefined;
+    const isPublished =
+      published === 'true' ? true : published === 'false' ? false : undefined;
 
     // Published Filter
     if (isPublished !== undefined) {
@@ -224,15 +247,17 @@ export class ShiftsService {
 
     if (fromDate) {
       parsedStart = new Date(fromDate);
-      if (isNaN(parsedStart.getTime())) throw new Error(`Invalid fromDate: ${fromDate}`);
+      if (isNaN(parsedStart.getTime()))
+        throw new Error(`Invalid fromDate: ${fromDate}`);
     }
 
     if (toDate) {
       parsedEnd = new Date(toDate);
-      if (isNaN(parsedEnd.getTime())) throw new Error(`Invalid toDate: ${toDate}`);
+      if (isNaN(parsedEnd.getTime()))
+        throw new Error(`Invalid toDate: ${toDate}`);
     }
 
-     if (parsedStart || parsedEnd) {
+    if (parsedStart || parsedEnd) {
       where.AND.push({
         startTime: {
           ...(parsedStart && { gte: parsedStart }),
@@ -241,14 +266,15 @@ export class ShiftsService {
       });
     }
 
-    const [shifts, total] = await Promise.all([this.prisma.shift.findMany({
-      where,
-      include,
-      skip,
-      take: limit,
-      orderBy,
-    }),
-    this.prisma.shift.count({where}),
+    const [shifts, total] = await Promise.all([
+      this.prisma.shift.findMany({
+        where,
+        include,
+        skip,
+        take: limit,
+        orderBy,
+      }),
+      this.prisma.shift.count({ where }),
     ]);
 
     let finalShifts: any[] = shifts;
@@ -258,7 +284,7 @@ export class ShiftsService {
         let showPay = true;
 
         const specificPermission = pharmacist.companyPermissions.find(
-          (p) => p.companyId === shift.companyId
+          (p) => p.companyId === shift.companyId,
         );
 
         if (specificPermission) {
@@ -279,7 +305,7 @@ export class ShiftsService {
         currentPage: page,
         itemsPerPage: limit,
         totalPages: Math.ceil(total / limit),
-      }
+      },
     };
 
     return response;
@@ -294,7 +320,7 @@ export class ShiftsService {
     fromDate?: Date,
     toDate?: Date,
   ) {
-    const { page = 1 , limit = 10 } = paginationDto;
+    const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
     let pharmacist: any = null;
@@ -305,7 +331,7 @@ export class ShiftsService {
     });
 
     if (!pharmacist) {
-      throw new Error("Pharmacist profile not found");
+      throw new Error('Pharmacist profile not found');
     }
 
     // Build dynamic filters
@@ -315,7 +341,7 @@ export class ShiftsService {
       where.AND.push({
         pharmacist: {
           userId: currentUser.id,
-        }
+        },
       });
     }
 
@@ -332,7 +358,7 @@ export class ShiftsService {
           user: true,
         },
       },
-    }
+    };
 
     //Search filter
     if (search) {
@@ -340,16 +366,16 @@ export class ShiftsService {
         OR: [
           { title: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } },
-          { company : { name: {contains: search, mode: 'insensitive' }}},
-          { company : { email: {contains: search, mode: 'insensitive' }}},
-          { company : { phone: {contains: search, mode: 'insensitive' }}},
-          { company : { address: {contains: search, mode: 'insensitive' }}},
-          { company : { city: {contains: search, mode: 'insensitive' }}},
-          { location : { name: {contains: search, mode: 'insensitive' }}},
-          { location : { email: {contains: search, mode: 'insensitive' }}},
-          { location : { phone: {contains: search, mode: 'insensitive' }}},
-          { location : { address: {contains: search, mode: 'insensitive' }}},
-          { location : { city: {contains: search, mode: 'insensitive' }}},
+          { company: { name: { contains: search, mode: 'insensitive' } } },
+          { company: { email: { contains: search, mode: 'insensitive' } } },
+          { company: { phone: { contains: search, mode: 'insensitive' } } },
+          { company: { address: { contains: search, mode: 'insensitive' } } },
+          { company: { city: { contains: search, mode: 'insensitive' } } },
+          { location: { name: { contains: search, mode: 'insensitive' } } },
+          { location: { email: { contains: search, mode: 'insensitive' } } },
+          { location: { phone: { contains: search, mode: 'insensitive' } } },
+          { location: { address: { contains: search, mode: 'insensitive' } } },
+          { location: { city: { contains: search, mode: 'insensitive' } } },
         ],
       });
     }
@@ -365,15 +391,17 @@ export class ShiftsService {
 
     if (fromDate) {
       parsedStart = new Date(fromDate);
-      if (isNaN(parsedStart.getTime())) throw new Error(`Invalid fromDate: ${fromDate}`);
+      if (isNaN(parsedStart.getTime()))
+        throw new Error(`Invalid fromDate: ${fromDate}`);
     }
 
     if (toDate) {
       parsedEnd = new Date(toDate);
-      if (isNaN(parsedEnd.getTime())) throw new Error(`Invalid toDate: ${toDate}`);
+      if (isNaN(parsedEnd.getTime()))
+        throw new Error(`Invalid toDate: ${toDate}`);
     }
 
-     if (parsedStart || parsedEnd) {
+    if (parsedStart || parsedEnd) {
       where.AND.push({
         startTime: {
           ...(parsedStart && { gte: parsedStart }),
@@ -382,14 +410,14 @@ export class ShiftsService {
       });
     }
 
-
-    const [shifts, total] = await Promise.all([this.prisma.shift.findMany({
-      where,
-      include,
-      skip,
-      take: limit,
-    }),
-    this.prisma.shift.count({where}),
+    const [shifts, total] = await Promise.all([
+      this.prisma.shift.findMany({
+        where,
+        include,
+        skip,
+        take: limit,
+      }),
+      this.prisma.shift.count({ where }),
     ]);
 
     const shiftsWithPermissions = shifts.map((shift) => {
@@ -397,7 +425,7 @@ export class ShiftsService {
 
       if (currentUser.role === 'relief_pharmacist' && pharmacist) {
         const specificPermission = pharmacist.companyPermissions.find(
-          (p) => p.companyId === shift.companyId
+          (p) => p.companyId === shift.companyId,
         );
 
         if (specificPermission) {
@@ -406,7 +434,7 @@ export class ShiftsService {
       }
 
       return {
-          ...shift,
+        ...shift,
         payRate: showPay ? shift.payRate : 'No Data',
       };
     });
@@ -418,7 +446,7 @@ export class ShiftsService {
         currentPage: page,
         itemsPerPage: limit,
         totalPages: Math.ceil(total / limit),
-      }
+      },
     };
 
     return response;
@@ -429,7 +457,7 @@ export class ShiftsService {
     paginationDto: PaginationDto,
     companyId?: string,
   ) {
-    const { page = 1 , limit = 1000 } = paginationDto;
+    const { page = 1, limit = 1000 } = paginationDto;
     const skip = (page - 1) * limit;
 
     // Build dynamic filters
@@ -439,20 +467,22 @@ export class ShiftsService {
     let openWhere: any = {};
 
     if (currentUser.role === 'admin') {
-      openWhere = {  status: 'open' };
+      openWhere = { status: 'open' };
     }
 
     if (currentUser.role === 'pharmacy_manager') {
-
       // Get manager allowed companies
       const manager = await this.prisma.user.findUnique({
         where: { id: currentUser.id },
         include: { allowedCompanies: true },
       });
 
-      if(companyId && manager?.allowedCompanies.find(c => c.id === companyId)){
+      if (
+        companyId &&
+        manager?.allowedCompanies.find((c) => c.id === companyId)
+      ) {
         where.AND.push({ companyId });
-      }else{
+      } else {
         where.AND.push({ companyId: currentUser.companyId });
       }
 
@@ -460,7 +490,7 @@ export class ShiftsService {
     }
 
     if (currentUser.role === 'location_manager') {
-      where.AND.push({ locationId: currentUser.locationId});
+      where.AND.push({ locationId: currentUser.locationId });
 
       openWhere = { ...where, status: 'open' };
     }
@@ -468,26 +498,25 @@ export class ShiftsService {
     let pharmacist: any = null;
 
     if (currentUser.role === 'relief_pharmacist') {
-       pharmacist = await this.prisma.pharmacistProfile.findUnique({
-          where: { userId: currentUser.id },
-          include: { companyPermissions: true },
-        });
+      pharmacist = await this.prisma.pharmacistProfile.findUnique({
+        where: { userId: currentUser.id },
+        include: { companyPermissions: true },
+      });
 
-        if (!pharmacist) {
-        throw new Error("Pharmacist profile not found");
+      if (!pharmacist) {
+        throw new Error('Pharmacist profile not found');
       }
 
       where.AND.push({
         pharmacist: {
           userId: currentUser.id,
-        }
+        },
       });
 
       openWhere = {
         status: 'open',
-        published: true
-       };
-
+        published: true,
+      };
     }
 
     const include: any = {
@@ -498,28 +527,29 @@ export class ShiftsService {
           user: true,
         },
       },
-    }
+    };
 
-    const [shifts, total, open, taken, completed, cancelled] = await this.prisma.$transaction([
-      this.prisma.shift.findMany({
-      where,
-      include,
-      skip,
-      take: limit,
-    }),
-    this.prisma.shift.count({where}),
-    this.prisma.shift.count({where: openWhere}),
-    this.prisma.shift.count({ where: { ...where, status: 'taken' } }),
-    this.prisma.shift.count({ where: { ...where, status: 'completed' } }),
-    this.prisma.shift.count({ where: { ...where, status: 'cancelled' } }),
-    ]);
+    const [shifts, total, open, taken, completed, cancelled] =
+      await this.prisma.$transaction([
+        this.prisma.shift.findMany({
+          where,
+          include,
+          skip,
+          take: limit,
+        }),
+        this.prisma.shift.count({ where }),
+        this.prisma.shift.count({ where: openWhere }),
+        this.prisma.shift.count({ where: { ...where, status: 'taken' } }),
+        this.prisma.shift.count({ where: { ...where, status: 'completed' } }),
+        this.prisma.shift.count({ where: { ...where, status: 'cancelled' } }),
+      ]);
 
     const shiftsWithPermissions = shifts.map((shift) => {
       let showPay = true;
 
       if (currentUser.role === 'relief_pharmacist' && pharmacist) {
         const specificPermission = pharmacist.companyPermissions.find(
-          (p) => p.companyId === shift.companyId
+          (p) => p.companyId === shift.companyId,
         );
 
         if (specificPermission) {
@@ -528,7 +558,7 @@ export class ShiftsService {
       }
 
       return {
-          ...shift,
+        ...shift,
         payRate: showPay ? shift.payRate : 'No Data',
       };
     });
@@ -544,18 +574,18 @@ export class ShiftsService {
         currentPage: page,
         itemsPerPage: limit,
         totalPages: Math.ceil(total / limit),
-      }
+      },
     };
 
     return response;
   }
 
-async findShiftsByDate(
+  async findShiftsByDate(
     currentUser: any,
     paginationDto: PaginationDto,
-    date?: string
+    date?: string,
   ) {
-    const { page = 1 , limit = 10 } = paginationDto;
+    const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
     // Build dynamic filters
@@ -571,21 +601,21 @@ async findShiftsByDate(
       });
 
       if (!pharmacist) {
-        throw new Error("Pharmacist profile not found");
+        throw new Error('Pharmacist profile not found');
       }
 
-      if(pharmacist.canViewAllCompanies){
+      if (pharmacist.canViewAllCompanies) {
         where.AND.push({ status: 'open', published: true });
-      }else{
+      } else {
         const allowedCompanyIds = pharmacist.companyPermissions.map(
-          (p) => p.companyId
+          (p) => p.companyId,
         );
 
         where.AND.push({
           status: 'open',
           published: true,
           companyId: { in: allowedCompanyIds },
-          });
+        });
       }
     }
 
@@ -597,7 +627,7 @@ async findShiftsByDate(
           user: true,
         },
       },
-    }
+    };
 
     //Search filter
     if (date) {
@@ -606,21 +636,24 @@ async findShiftsByDate(
 
       where.AND.push({
         OR: [
-          { startTime: {
-            gte: new Date(startDate.setHours(0,0,0,0)),
-            lte: new Date(endDate.setHours(23,59,59,999)),
-           } },
+          {
+            startTime: {
+              gte: new Date(startDate.setHours(0, 0, 0, 0)),
+              lte: new Date(endDate.setHours(23, 59, 59, 999)),
+            },
+          },
         ],
       });
     }
 
-    const [shifts, total] = await Promise.all([this.prisma.shift.findMany({
-      where,
-      include,
-      skip,
-      take: limit,
-    }),
-    this.prisma.shift.count({where}),
+    const [shifts, total] = await Promise.all([
+      this.prisma.shift.findMany({
+        where,
+        include,
+        skip,
+        take: limit,
+      }),
+      this.prisma.shift.count({ where }),
     ]);
 
     const shiftsWithPermissions = shifts.map((shift) => {
@@ -628,7 +661,7 @@ async findShiftsByDate(
 
       if (currentUser.role === 'relief_pharmacist' && pharmacist) {
         const specificPermission = pharmacist.companyPermissions.find(
-          (p) => p.companyId === shift.companyId
+          (p) => p.companyId === shift.companyId,
         );
 
         if (specificPermission) {
@@ -637,7 +670,7 @@ async findShiftsByDate(
       }
 
       return {
-          ...shift,
+        ...shift,
         payRate: showPay ? shift.payRate : 'No Data',
       };
     });
@@ -649,7 +682,7 @@ async findShiftsByDate(
         currentPage: page,
         itemsPerPage: limit,
         totalPages: Math.ceil(total / limit),
-      }
+      },
     };
 
     return response;
@@ -660,7 +693,7 @@ async findShiftsByDate(
     paginationDto: PaginationDto,
     companyId?: string,
   ) {
-    const { page = 1 , limit = 10 } = paginationDto;
+    const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
     // Build dynamic filters
@@ -674,9 +707,12 @@ async findShiftsByDate(
         include: { allowedCompanies: true },
       });
 
-      if(companyId && manager?.allowedCompanies.find(c => c.id === companyId)){
+      if (
+        companyId &&
+        manager?.allowedCompanies.find((c) => c.id === companyId)
+      ) {
         where.AND.push({ companyId });
-      }else{
+      } else {
         where.AND.push({ companyId: currentUser.companyId });
       }
     }
@@ -689,7 +725,7 @@ async findShiftsByDate(
       where.AND.push({
         pharmacist: {
           userId: currentUser.id,
-        }
+        },
       });
     }
 
@@ -701,18 +737,19 @@ async findShiftsByDate(
           user: true,
         },
       },
-    }
+    };
 
-    const [shifts, total] = await Promise.all([this.prisma.shift.findMany({
-      where,
-      include,
-      skip,
-      take: limit,
-      orderBy: {
+    const [shifts, total] = await Promise.all([
+      this.prisma.shift.findMany({
+        where,
+        include,
+        skip,
+        take: limit,
+        orderBy: {
           createdAt: 'desc',
         },
-    }),
-    this.prisma.shift.count({where}),
+      }),
+      this.prisma.shift.count({ where }),
     ]);
 
     const response = {
@@ -722,7 +759,7 @@ async findShiftsByDate(
         currentPage: page,
         itemsPerPage: limit,
         totalPages: Math.ceil(total / limit),
-      }
+      },
     };
 
     return response;
@@ -731,9 +768,9 @@ async findShiftsByDate(
   async findMonthShifts(
     currentUser: any,
     paginationDto: PaginationDto,
-    month?: string
+    month?: string,
   ) {
-    const { page = 1 , limit = 10 } = paginationDto;
+    const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
     // Build dynamic filters
@@ -741,30 +778,31 @@ async findShiftsByDate(
 
     //Month filter
     if (month) {
-      const [year, monthNum] = month.split("-").map(Number);
+      const [year, monthNum] = month.split('-').map(Number);
       const startDate = new Date(year, monthNum - 1, 1, 0, 0, 0, 0);
       const endDate = new Date(year, monthNum, 0, 23, 59, 59, 999);
 
       where.AND.push({
         startTime: {
-            gte: startDate,
-            lte: endDate,
-           },
+          gte: startDate,
+          lte: endDate,
+        },
       });
     }
 
-    const [shifts, total, statusCounts] = await Promise.all([this.prisma.shift.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: { startTime: "asc" },
-    }),
-    this.prisma.shift.count({where}),
-    this.prisma.shift.groupBy({
-      by: ["status"],
-      where,
-      _count: { _all: true },
-    }),
+    const [shifts, total, statusCounts] = await Promise.all([
+      this.prisma.shift.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { startTime: 'asc' },
+      }),
+      this.prisma.shift.count({ where }),
+      this.prisma.shift.groupBy({
+        by: ['status'],
+        where,
+        _count: { _all: true },
+      }),
     ]);
 
     const counts = {
@@ -788,7 +826,7 @@ async findShiftsByDate(
         itemsPerPage: limit,
         totalPages: Math.ceil(total / limit),
         counts: counts,
-      }
+      },
     };
 
     return response;
@@ -797,9 +835,9 @@ async findShiftsByDate(
   async findWeekShifts(
     currentUser: any,
     paginationDto: PaginationDto,
-    week: "current" | "last" | "beforeLast" | "next" | "afterNext" = "current"
+    week: 'current' | 'last' | 'beforeLast' | 'next' | 'afterNext' = 'current',
   ) {
-    const { page = 1 , limit = 10 } = paginationDto;
+    const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
 
     const { start, end } = getWeekRange(week);
@@ -808,50 +846,50 @@ async findShiftsByDate(
     const where: any = { AND: [] };
 
     where.AND.push({
-        startTime: {
-            gte: start,
-            lte: end,
-           },
-      });
+      startTime: {
+        gte: start,
+        lte: end,
+      },
+    });
 
-   // Group by day + status
-  const raw = await this.prisma.shift.groupBy({
-    by: ["status", "startTime"],
-    where,
-    _count: { _all: true },
-  });
+    // Group by day + status
+    const raw = await this.prisma.shift.groupBy({
+      by: ['status', 'startTime'],
+      where,
+      _count: { _all: true },
+    });
 
-  // Initialize all days
-  const days: string[] = [];
+    // Initialize all days
+    const days: string[] = [];
 
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(start);
-    d.setUTCDate(start.getUTCDate() + i);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setUTCDate(start.getUTCDate() + i);
 
-    days.push(d.toISOString().slice(0, 10))
-  }
+      days.push(d.toISOString().slice(0, 10));
+    }
 
-  // Normalize per-day results
-  const result: Record<string, any> = {};
+    // Normalize per-day results
+    const result: Record<string, any> = {};
 
-  days.forEach((key) => {
-    result[key] = {
-      date: key,
-      open: 0,
-      taken: 0,
-      cancelled: 0,
-      completed: 0,
-    };
-  });
+    days.forEach((key) => {
+      result[key] = {
+        date: key,
+        open: 0,
+        taken: 0,
+        cancelled: 0,
+        completed: 0,
+      };
+    });
 
-  // Fill counts
-  raw.forEach((item) => {
-    const dateKey = item.startTime.toISOString().slice(0, 10);
+    // Fill counts
+    raw.forEach((item) => {
+      const dateKey = item.startTime.toISOString().slice(0, 10);
 
-    if (!result[dateKey]) return;
+      if (!result[dateKey]) return;
 
-    result[dateKey][item.status] += item._count._all;
-  });
+      result[dateKey][item.status] += item._count._all;
+    });
 
     const response = {
       data: Object.values(result),
@@ -861,7 +899,7 @@ async findShiftsByDate(
           end,
           week,
         },
-      }
+      },
     };
 
     return response;
@@ -872,19 +910,16 @@ async findShiftsByDate(
     return this.prisma.shift.findUnique({ where: { id } });
   }
 
-  async update(
-    id: string,
-    updateShiftDto: UpdateShiftDto,
-  ) {
-   //find shift before update
-   const existingShift = await this.prisma.shift.findUnique({
+  async update(id: string, updateShiftDto: UpdateShiftDto, skipEmail = false) {
+    //find shift before update
+    const existingShift = await this.prisma.shift.findUnique({
       where: { id },
       include: {
         company: {
           select: {
             name: true,
             timezone: true,
-          }
+          },
         },
         pharmacist: {
           include: {
@@ -895,19 +930,18 @@ async findShiftsByDate(
             },
           },
         },
-      }
+      },
     });
 
     if (!existingShift) {
       throw new NotFoundException('Shift not found');
     }
 
-    const isTakingShift =
-      updateShiftDto.status === 'taken';
+    const isTakingShift = updateShiftDto.status === 'taken';
 
     if (isTakingShift && !updateShiftDto.published) {
       throw new ForbiddenException(
-        'This shift is not published yet and cannot be taken'
+        'This shift is not published yet and cannot be taken',
       );
     }
 
@@ -916,10 +950,16 @@ async findShiftsByDate(
       select: { timezone: true },
     });
 
-    const timezone = company?.timezone ?? "America/Edmonton";
+    const timezone = company?.timezone ?? 'America/Edmonton';
 
-    const startUtc = fromZonedTime(updateShiftDto.startTime ?? existingShift.startTime, timezone);
-    const endUtc = fromZonedTime(updateShiftDto.endTime ?? existingShift.endTime, timezone);
+    const startUtc = fromZonedTime(
+      updateShiftDto.startTime ?? existingShift.startTime,
+      timezone,
+    );
+    const endUtc = fromZonedTime(
+      updateShiftDto.endTime ?? existingShift.endTime,
+      timezone,
+    );
 
     //update shift
     const updatedShift = await this.prisma.shift.update({
@@ -937,71 +977,7 @@ async findShiftsByDate(
             address: true,
             city: true,
             province: true,
-          }
-        },
-        pharmacist: {
-          include: {
-            user: {
-              select: {
-                email: true,
-              },
-            },
           },
-        },
-      },
-    })
-
-    //compare old vs new shift
-    const oldStatus = existingShift.status;
-    const newStatus = updatedShift.status;
-
-    //if status was updated -> emit event
-    if (oldStatus !== newStatus) {
-      switch (newStatus) {
-        case 'cancelled':
-          this.eventEmitter.emit(AppEvents.SHIFT_CANCELLED, { shift: updatedShift });
-          break;
-        case 'completed':
-          this.eventEmitter.emit(AppEvents.SHIFT_COMPLETED, { shift: updatedShift });
-          break;
-        case 'taken':
-          this.eventEmitter.emit(AppEvents.SHIFT_TAKEN, { shift: updatedShift });
-          break;
-      }
-    }
-
-    //Notify pharmacist if shift times were updated
-    const oldStartTime = existingShift.startTime;
-    const newStartTime = updatedShift.startTime;
-    const oldEndTime = existingShift.endTime;
-    const newEndTime = updatedShift.endTime;
-
-    if( oldStartTime.getTime() !== newStartTime.getTime() || oldEndTime.getTime() !== newEndTime.getTime()){
-      if(updatedShift?.pharmacist?.user.email)
-        this.emailService.emailPharmacistShiftUpdated(updatedShift?.pharmacist?.user.email, updatedShift)
-    }
-
-    //Notify pharmacist if pharmacistId was changed
-    const oldPharmacistId = existingShift.pharmacistId;
-    const newPharmacistId = updatedShift.pharmacistId;
-
-    if(oldPharmacistId !== newPharmacistId){
-      if(existingShift?.pharmacist?.user.email)
-        this.emailService.emailPharmacistShiftCancelled(existingShift?.pharmacist?.user.email, existingShift)
-    }
-
-    return updatedShift;
-  }
-
-async remove(id: string) {
-    const removedShift = await this.prisma.shift.delete({
-      where: { id },
-       include: {
-        company: {
-          select: {
-            name: true,
-            timezone: true,
-          }
         },
         pharmacist: {
           include: {
@@ -1015,19 +991,99 @@ async remove(id: string) {
       },
     });
 
-    if(removedShift.status === "taken" && removedShift.pharmacistId){
-      if(removedShift?.pharmacist?.user.email)
-        this.emailService.emailPharmacistShiftCancelled(removedShift?.pharmacist?.user.email, removedShift)
+    //compare old vs new shift
+    const oldStatus = existingShift.status;
+    const newStatus = updatedShift.status;
+
+    //if status was updated -> emit event
+    if (oldStatus !== newStatus) {
+      switch (newStatus) {
+        case 'cancelled':
+          this.eventEmitter.emit(AppEvents.SHIFT_CANCELLED, {
+            shift: updatedShift,
+          });
+          break;
+        case 'completed':
+          this.eventEmitter.emit(AppEvents.SHIFT_COMPLETED, {
+            shift: updatedShift,
+          });
+          break;
+        case 'taken':
+          this.eventEmitter.emit(AppEvents.SHIFT_TAKEN, {
+            shift: updatedShift,
+          });
+          break;
+      }
+    }
+
+    if (!skipEmail) {
+      //Notify pharmacist if shift times were updated
+      const oldStartTime = existingShift.startTime;
+      const newStartTime = updatedShift.startTime;
+      const oldEndTime = existingShift.endTime;
+      const newEndTime = updatedShift.endTime;
+
+      if (
+        oldStartTime.getTime() !== newStartTime.getTime() ||
+        oldEndTime.getTime() !== newEndTime.getTime()
+      ) {
+        if (updatedShift?.pharmacist?.user.email)
+          this.emailService.emailPharmacistShiftUpdated(
+            updatedShift?.pharmacist?.user.email,
+            updatedShift,
+          );
+      }
+
+      //Notify pharmacist if pharmacistId was changed
+      const oldPharmacistId = existingShift.pharmacistId;
+      const newPharmacistId = updatedShift.pharmacistId;
+
+      if (oldPharmacistId !== newPharmacistId) {
+        if (existingShift?.pharmacist?.user.email)
+          this.emailService.emailPharmacistShiftCancelled(
+            existingShift?.pharmacist?.user.email,
+            existingShift,
+          );
+      }
+    }
+
+    return updatedShift;
+  }
+
+  async remove(id: string) {
+    const removedShift = await this.prisma.shift.delete({
+      where: { id },
+      include: {
+        company: {
+          select: {
+            name: true,
+            timezone: true,
+          },
+        },
+        pharmacist: {
+          include: {
+            user: {
+              select: {
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (removedShift.status === 'taken' && removedShift.pharmacistId) {
+      if (removedShift?.pharmacist?.user.email)
+        this.emailService.emailPharmacistShiftCancelled(
+          removedShift?.pharmacist?.user.email,
+          removedShift,
+        );
     }
 
     return removedShift;
   }
 
-  async takeShift(
-    id: string,
-    updateShiftDto: UpdateShiftDto,
-  ) {
-
+  async takeShift(id: string, updateShiftDto: UpdateShiftDto) {
     const shift = await this.prisma.shift.findUnique({
       where: { id },
     });
@@ -1058,7 +1114,7 @@ async remove(id: string) {
             address: true,
             city: true,
             province: true,
-          }
+          },
         },
         pharmacist: {
           include: {
@@ -1081,14 +1137,17 @@ async remove(id: string) {
     const pharmacist = await this.prisma.pharmacistProfile.findUnique({
       where: { id: updateShiftDto.pharmacistId },
       include: {
-        user: true
+        user: true,
       },
     });
 
-    const pharmacistName = `${pharmacist?.user.firstName} ${pharmacist?.user.lastName}`
+    const pharmacistName = `${pharmacist?.user.firstName} ${pharmacist?.user.lastName}`;
 
-    if(updatedShift?.pharmacist?.user.email) {
-      this.emailService.emailPharmacistShiftTaken(updatedShift?.pharmacist?.user.email, updatedShift)
+    if (updatedShift?.pharmacist?.user.email) {
+      this.emailService.emailPharmacistShiftTaken(
+        updatedShift?.pharmacist?.user.email,
+        updatedShift,
+      );
     }
 
     const users = await this.prisma.user.findMany({
@@ -1096,28 +1155,30 @@ async remove(id: string) {
         OR: [
           { companyId: updatedShift.companyId },
           { role: 'admin' },
-          { allowedCompanies:{
-            some: { id: updatedShift.companyId }
-          }},
-        ]
+          {
+            allowedCompanies: {
+              some: { id: updatedShift.companyId },
+            },
+          },
+        ],
       },
-      select: { email: true }
+      select: { email: true },
     });
 
-    const managersEmails = [...new Set(users.map(u => u.email))];
+    const managersEmails = [...new Set(users.map((u) => u.email))];
 
-    if(managersEmails.length>0){
-      this.emailService.emailManagersShiftTaken(managersEmails, updatedShift, pharmacistName)
-    };
+    if (managersEmails.length > 0) {
+      this.emailService.emailManagersShiftTaken(
+        managersEmails,
+        updatedShift,
+        pharmacistName,
+      );
+    }
 
     return updatedShift;
   }
 
-  async notifyPharmacists(
-    id: string,
-    notifyUsersDto: NotifyUsersDto,
-  ) {
-
+  async notifyPharmacists(id: string, notifyUsersDto: NotifyUsersDto) {
     const shift = await this.prisma.shift.findUnique({
       where: { id },
       include: {
@@ -1125,8 +1186,8 @@ async remove(id: string) {
           select: {
             name: true,
             timezone: true,
-          }
-        }
+          },
+        },
       },
     });
 
@@ -1150,13 +1211,16 @@ async remove(id: string) {
         },
       },
       include: {
-        user: true
+        user: true,
       },
     });
 
     await Promise.all(
-      pharmacists.map(pharmacist =>
-        this.emailService.emailPharmacistShiftOpen(pharmacist.user.email, shift)
+      pharmacists.map((pharmacist) =>
+        this.emailService.emailPharmacistShiftOpen(
+          pharmacist.user.email,
+          shift,
+        ),
       ),
     );
 
@@ -1167,12 +1231,11 @@ async remove(id: string) {
     id: string,
     requestShiftCancelDto: RequestShiftCancelDto,
   ) {
-
     const shift = await this.prisma.shift.findUnique({
       where: {
         id,
         pharmacistId: requestShiftCancelDto.pharmacistProfileId,
-       },
+      },
       include: {
         company: {
           select: {
@@ -1180,7 +1243,7 @@ async remove(id: string) {
             timezone: true,
             contactName: true,
             contactEmail: true,
-          }
+          },
         },
         pharmacist: {
           select: {
@@ -1189,11 +1252,10 @@ async remove(id: string) {
                 email: true,
                 firstName: true,
                 lastName: true,
-              }
-            }
-          }
-        }
-
+              },
+            },
+          },
+        },
       },
     });
 
@@ -1211,14 +1273,14 @@ async remove(id: string) {
 
     //Send emails
     const contactPersonEmail = shift.company.contactEmail;
-    const cancellationReason= requestShiftCancelDto.cancelReason;
+    const cancellationReason = requestShiftCancelDto.cancelReason;
 
     const admins = await this.prisma.user.findMany({
       where: { role: 'admin' },
-      select: { email: true }
+      select: { email: true },
     });
 
-    const recipientList = admins.map(a => a.email);
+    const recipientList = admins.map((a) => a.email);
     if (contactPersonEmail) {
       recipientList.push(contactPersonEmail);
     }
@@ -1226,8 +1288,12 @@ async remove(id: string) {
     //eliminate duplicate emails
     const adminAndContactPersonEmails = [...new Set(recipientList)];
 
-    if(contactPersonEmail && shift.pharmacist){
-      this.emailService.emailRequestShiftCancellation(adminAndContactPersonEmails, shift, cancellationReason)
+    if (contactPersonEmail && shift.pharmacist) {
+      this.emailService.emailRequestShiftCancellation(
+        adminAndContactPersonEmails,
+        shift,
+        cancellationReason,
+      );
     }
 
     return { success: true };
@@ -1239,49 +1305,48 @@ async remove(id: string) {
     cutoff.setHours(8, 0, 0, 0); //+8 hours of new day to make up for time zone
 
     const cancelled = await this.prisma.shift.updateMany({
-        where: {
-          status: 'open',
-          endTime: { lte: cutoff },
-        },
-        data: {
-          status: 'cancelled',
-        },
-      });
+      where: {
+        status: 'open',
+        endTime: { lte: cutoff },
+      },
+      data: {
+        status: 'cancelled',
+      },
+    });
 
     const completed = await this.prisma.shift.updateMany({
-        where: {
-          status: 'taken',
-          endTime: { lte: cutoff },
-        },
-        data: {
-          status: 'completed',
-        },
-      });
+      where: {
+        status: 'taken',
+        endTime: { lte: cutoff },
+      },
+      data: {
+        status: 'completed',
+      },
+    });
 
-      return {
-        message: `Auto-closed ${cancelled.count+completed.count} shifts`,
-        cutoffTime: cutoff,
-        cancelled: cancelled.count,
-        completed: completed.count,
-      };
+    return {
+      message: `Auto-closed ${cancelled.count + completed.count} shifts`,
+      cutoffTime: cutoff,
+      cancelled: cancelled.count,
+      completed: completed.count,
+    };
   }
 }
 
-
 function getWeekRange(
-  week: "current" | "last" | "beforeLast" | "next" | "afterNext",
-  timeZone = "America/Vancouver"
-){
+  week: 'current' | 'last' | 'beforeLast' | 'next' | 'afterNext',
+  timeZone = 'America/Vancouver',
+) {
   const now = new Date();
 
-   // Convert "now" to local date parts
+  // Convert "now" to local date parts
   const local = new Date(
-    new Intl.DateTimeFormat("en-US", {
+    new Intl.DateTimeFormat('en-US', {
       timeZone,
-      year: "numeric",
-      month: "numeric",
-      day: "numeric",
-    }).format(now)
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    }).format(now),
   );
 
   // Get Monday of current week
@@ -1296,27 +1361,27 @@ function getWeekRange(
   let end = new Date(monday);
 
   switch (week) {
-    case "last":
+    case 'last':
       start.setDate(start.getDate() - 7);
       end.setDate(end.getDate() - 1);
       break;
 
-    case "beforeLast":
+    case 'beforeLast':
       start.setDate(start.getDate() - 14);
       end.setDate(end.getDate() - 8);
       break;
 
-    case "next":
+    case 'next':
       start.setDate(start.getDate() + 7);
       end.setDate(end.getDate() + 13);
       break;
 
-    case "afterNext":
+    case 'afterNext':
       start.setDate(start.getDate() + 14);
       end.setDate(end.getDate() + 20);
       break;
 
-    case "current":
+    case 'current':
     default:
       end.setDate(end.getDate() + 6);
       break;
@@ -1326,6 +1391,3 @@ function getWeekRange(
 
   return { start, end };
 }
-
-
-

@@ -1,31 +1,62 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { Storage } from '@google-cloud/storage';
 import { v4 as uuid } from 'uuid';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { FileType } from 'generated/prisma/enums';
+import { ExceptionMessages } from 'node_modules/@google-cloud/storage/build/cjs/src/storage';
 
 @Injectable()
 export class StorageService {
   constructor(private prisma: PrismaService) {}
 
   private storage = new Storage();
-  private bucketName = 'pharm-scheduler-file-uploads';
+  private privateBucketName = process.env.GCS_PRIVATE_BUCKET;
+  private publicBucketName = process.env.GCS_PUBLIC_BUCKET;
 
-  async getSignedUploadUrl(fileName: string, contentType: string) {
+  async getSignedUploadUrl(
+    fileName: string,
+    contentType: string,
+    expectedFileType: FileType,
+  ) {
     if (!fileName || !contentType) {
       throw new BadRequestException('File name and content type are required.');
     }
 
-    const MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5MB limit
+    const isPublic =
+      expectedFileType === 'logo' || expectedFileType === 'profilePicture';
+    const targetBucketName = isPublic
+      ? this.publicBucketName
+      : this.privateBucketName;
+
+    if (!targetBucketName) {
+      throw new InternalServerErrorException('Storage bucket not defined');
+    }
+
+    const allowedTypes = {
+      resume: ['application/pdf'],
+      logo: ['image/jpeg', 'image/png', 'image/webp'],
+      profilePicture: ['image/jpeg', 'image/png', 'image/webp', 'image/avif'],
+    };
+
+    if (!allowedTypes[expectedFileType]?.includes(contentType)) {
+      throw new BadRequestException(
+        `Invalid file type for ${expectedFileType}.`,
+      );
+    }
+
+    const MAX_SIZE_BYTES =
+      expectedFileType === 'resume' ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
     const sanitizedFileName = fileName
       .replace(/[^a-z0-9.]/gi, '_')
       .toLowerCase();
     const uniqueName = `${uuid()}_${sanitizedFileName}`;
 
-    const bucket = this.storage.bucket(this.bucketName);
+    const bucket = this.storage.bucket(targetBucketName);
     const file = bucket.file(uniqueName);
 
     const [url] = await file.getSignedUrl({
@@ -41,7 +72,7 @@ export class StorageService {
     return {
       url,
       fileName: uniqueName,
-      publicUrl: `https://storage.googleapis.com/${this.bucketName}/${uniqueName}`,
+      publicUrl: `https://storage.googleapis.com/${targetBucketName}/${uniqueName}`,
     };
   }
 
@@ -54,7 +85,13 @@ export class StorageService {
       throw new NotFoundException(`File with ID "${id}" not found.`);
     }
 
-    const file = this.storage.bucket(this.bucketName).file(fileData.fileName);
+    if (!this.privateBucketName) {
+      throw new InternalServerErrorException('Storage bucket not defined');
+    }
+
+    const file = this.storage
+      .bucket(this.privateBucketName)
+      .file(fileData.fileName);
 
     const [url] = await file.getSignedUrl({
       version: 'v4',
