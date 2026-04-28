@@ -14,15 +14,17 @@ export class PharmacistProfilesService {
     return this.prisma.pharmacistProfile.create({
       data: {
         ...profileData,
-        companyPermissions: companyPermissions ? {
-          create: companyPermissions.map((permission) => ({
-            companyId: permission.companyId,
-            canViewPayRate: permission.canViewPayRate,
-          })),
-        } : undefined,
+        companyPermissions: companyPermissions
+          ? {
+              create: companyPermissions.map((permission) => ({
+                companyId: permission.companyId,
+                canViewPayRate: permission.canViewPayRate,
+              })),
+            }
+          : undefined,
       },
       include: {
-        companyPermissions: true, 
+        companyPermissions: true,
       },
     });
   }
@@ -37,12 +39,19 @@ export class PharmacistProfilesService {
     return this.prisma.pharmacistProfile.findUnique({ where: { id } });
   }
 
- async update(
+  async update(
+    currentUser: any,
     id: string,
-    updatePharmacistProfileDto: UpdatePharmacistProfileDto
+    updatePharmacistProfileDto: UpdatePharmacistProfileDto,
   ) {
     const { companyPermissions, ...profileData } = updatePharmacistProfileDto;
-    
+
+    if (currentUser.role !== 'admin') {
+      delete profileData.approved;
+      delete profileData.canViewAllCompanies;
+      delete profileData.canViewPayRates;
+    }
+
     return await this.prisma.$transaction(async (tx) => {
       const updatedProfile = await tx.pharmacistProfile.update({
         where: { id },
@@ -50,8 +59,10 @@ export class PharmacistProfilesService {
       });
 
       if (companyPermissions) {
-        await tx.pharmacistCompanyPermission.deleteMany({ where: { pharmacistId: id } });
-        
+        await tx.pharmacistCompanyPermission.deleteMany({
+          where: { pharmacistId: id },
+        });
+
         await tx.pharmacistCompanyPermission.createMany({
           data: companyPermissions.map((item) => ({
             pharmacistId: id,

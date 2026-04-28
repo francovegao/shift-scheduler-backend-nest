@@ -1,15 +1,32 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { PharmacistProfilesService } from './pharmacist-profiles.service';
 import { CreatePharmacistProfileDto } from './dto/create-pharmacist-profile.dto';
 import { UpdatePharmacistProfileDto } from './dto/update-pharmacist-profile.dto';
-import { ApiCreatedResponse, ApiOkResponse, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiTags,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { PharmacistProfileEntity } from './entities/pharmacist-profile.entity';
 import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
+import { CurrentUser } from 'src/auth/current-user.decorator';
 
 @Controller('pharmacist-profiles')
 @ApiTags('Pharmacist Profiles')
 export class PharmacistProfilesController {
-  constructor(private readonly pharmacistProfilesService: PharmacistProfilesService) {}
+  constructor(
+    private readonly pharmacistProfilesService: PharmacistProfilesService,
+  ) {}
 
   @Post()
   @UseGuards(FirebaseAuthGuard)
@@ -40,9 +57,15 @@ export class PharmacistProfilesController {
   @ApiBearerAuth()
   @ApiCreatedResponse({ type: PharmacistProfileEntity })
   update(
+    @CurrentUser() currentUser,
     @Param('id') id: string,
-    @Body() updatePharmacistProfileDto: UpdatePharmacistProfileDto) {
-    return this.pharmacistProfilesService.update(id, updatePharmacistProfileDto);
+    @Body() updatePharmacistProfileDto: UpdatePharmacistProfileDto,
+  ) {
+    return this.pharmacistProfilesService.update(
+      currentUser,
+      id,
+      updatePharmacistProfileDto,
+    );
   }
 
   @Delete(':id')
