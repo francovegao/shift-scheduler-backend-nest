@@ -1,52 +1,91 @@
 steps:
-  # Step 1: Build Docker image
+  # Step 0: Build Docker image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api-live:latest', '.']
-
-  # Step 2: Push to Google Container Registry
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api-live:latest']
-
-  # Step 3: Deploy to Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
     args:
       [
-        'run', 'deploy', 'scheduler-nest-api-live',
-        '--image', 'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api-live:latest',
-        '--region', 'us-west1',
-        '--platform', 'managed',
+        'build',
+        '-t',
+        'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api-live:latest',
+        '.',
+      ]
+
+  # Step 1: Push to Google Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      [
+        'push',
+        'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api-live:latest',
+      ]
+
+  # Step 2: Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args: [
+        'run',
+        'deploy',
+        'scheduler-nest-api-live',
+        '--image',
+        'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api-live:latest',
+        '--region',
+        'us-west1',
+        '--platform',
+        'managed',
         '--allow-unauthenticated',
-        '--add-cloudsql-instances', 'relief-pharmacist-scheduler:us-west1:relief-pharm-live-db',
-        '--set-env-vars', 'NODE_ENV=production',
-        '--set-secrets', 'DATABASE_URL=projects/353576862326/secrets/DATABASE_URL_LIVE:latest',
-        '--set-secrets', 'FIREBASE_PRIVATE_KEY=projects/353576862326/secrets/FIREBASE_PRIVATE_KEY:latest',
-        '--set-secrets', 'FIREBASE_CLIENT_EMAIL=projects/353576862326/secrets/FIREBASE_CLIENT_EMAIL:latest',
-        '--set-secrets', 'FIREBASE_PROJECT_ID=projects/353576862326/secrets/FIREBASE_PROJECT_ID:latest',
-        '--set-secrets', 'RESEND_API_KEY=projects/353576862326/secrets/RESEND_API_KEY:latest',
+        '--add-cloudsql-instances',
+        'relief-pharmacist-scheduler:us-west1:relief-pharm-live-db',
+        '--set-env-vars',
+        'NODE_ENV=production',
+        '--set-env-vars',
+        'GCS_PRIVATE_BUCKET=pharm-scheduler-file-uploads',
+        '--set-env-vars',
+        'GCS_PUBLIC_BUCKET=pharm-scheduler-public-assets',
+        '--set-secrets',
+        'DATABASE_URL=projects/353576862326/secrets/DATABASE_URL_LIVE:latest',
+        '--set-secrets',
+        'FIREBASE_PRIVATE_KEY=projects/353576862326/secrets/FIREBASE_PRIVATE_KEY:latest',
+        '--set-secrets',
+        'FIREBASE_CLIENT_EMAIL=projects/353576862326/secrets/FIREBASE_CLIENT_EMAIL:latest',
+        '--set-secrets',
+        'FIREBASE_PROJECT_ID=projects/353576862326/secrets/FIREBASE_PROJECT_ID:latest',
+        '--set-secrets',
+        'RESEND_API_KEY=projects/353576862326/secrets/RESEND_API_KEY:latest',
         #'--set-env-vars', 'PORT=8080'
       ]
 
-  # Step 4: Deploy Cloud Run Job
+  # Step 3: Deploy Cloud Run Job
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
       [
-        'run', 'jobs', 'deploy', 'shift-auto-close-job-live',
-        '--image', 'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api-live:latest',
-        '--region', 'us-west1',
-        '--set-env-vars', 'NODE_ENV=production',
-        '--set-secrets', 'DATABASE_URL=projects/353576862326/secrets/DATABASE_URL_LIVE:latest',
-        '--set-secrets', 'FIREBASE_PRIVATE_KEY=projects/353576862326/secrets/FIREBASE_PRIVATE_KEY:latest',
-        '--set-secrets', 'FIREBASE_CLIENT_EMAIL=projects/353576862326/secrets/FIREBASE_CLIENT_EMAIL:latest',
-        '--set-secrets', 'FIREBASE_PROJECT_ID=projects/353576862326/secrets/FIREBASE_PROJECT_ID:latest',
-        '--set-secrets', 'RESEND_API_KEY=projects/353576862326/secrets/RESEND_API_KEY:latest',
-        '--command', 'npm',
-        '--args', 'run,start:job'
+        'run',
+        'jobs',
+        'deploy',
+        'shift-auto-close-job-live',
+        '--image',
+        'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api-live:latest',
+        '--region',
+        'us-west1',
+        '--set-env-vars',
+        'NODE_ENV=production',
+        '--set-env-vars',
+        'GCS_PRIVATE_BUCKET=pharm-scheduler-file-uploads',
+        '--set-env-vars',
+        'GCS_PUBLIC_BUCKET=pharm-scheduler-public-assets',
+        '--set-secrets',
+        'DATABASE_URL=projects/353576862326/secrets/DATABASE_URL_LIVE:latest',
+        '--set-secrets',
+        'FIREBASE_PRIVATE_KEY=projects/353576862326/secrets/FIREBASE_PRIVATE_KEY:latest',
+        '--set-secrets',
+        'FIREBASE_CLIENT_EMAIL=projects/353576862326/secrets/FIREBASE_CLIENT_EMAIL:latest',
+        '--set-secrets',
+        'FIREBASE_PROJECT_ID=projects/353576862326/secrets/FIREBASE_PROJECT_ID:latest',
+        '--set-secrets',
+        'RESEND_API_KEY=projects/353576862326/secrets/RESEND_API_KEY:latest',
+        '--command',
+        'npm',
+        '--args',
+        'run,start:job',
       ]
 
 images:
   - 'gcr.io/relief-pharmacist-scheduler/scheduler-nest-api-live'
- 
-
-  
