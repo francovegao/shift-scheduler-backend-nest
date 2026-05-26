@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -13,6 +14,8 @@ import { fromZonedTime } from 'date-fns-tz';
 import { EmailService } from 'src/email/email.service';
 import { NotifyUsersDto } from 'src/email/dto/notify-users.dto';
 import { RequestShiftCancelDto } from 'src/email/dto/request-cancellation.dto';
+import { CreateBulkShiftsDto } from './dto/create-bulk-shifts.dto';
+import { Prisma } from 'generated/prisma/client';
 
 @Injectable()
 export class ShiftsService {
@@ -42,6 +45,73 @@ export class ShiftsService {
     };
 
     return this.prisma.shift.create({ data: createShiftDto });
+  }
+
+  async createBulk(createBulkShiftDto: CreateBulkShiftsDto) {
+    if (!createBulkShiftDto.dates.length) {
+      throw new BadRequestException('At least one date is required');
+    }
+
+    if (createBulkShiftDto.startMinutes === createBulkShiftDto.endMinutes) {
+      throw new BadRequestException('Start and end time cannot be equal');
+    }
+
+    const company = await this.prisma.company.findUnique({
+      where: { id: createBulkShiftDto.companyId },
+      select: { timezone: true },
+    });
+
+    const timezone = company?.timezone ?? 'America/Edmonton';
+
+    const shiftsData: Prisma.ShiftCreateManyInput[] = [];
+
+    for (const dateStr of createBulkShiftDto.dates) {
+      const [year, month, day] = dateStr.split('-').map(Number);
+
+      const startHours = Math.floor(createBulkShiftDto.startMinutes / 60);
+      const startMins = createBulkShiftDto.startMinutes % 60;
+
+      const endHours = Math.floor(createBulkShiftDto.endMinutes / 60);
+      const endMins = createBulkShiftDto.endMinutes % 60;
+
+      const startLocal = new Date(
+        year,
+        month - 1,
+        day,
+        startHours,
+        startMins,
+        0,
+        0,
+      );
+      const endLocal = new Date(year, month - 1, day, endHours, endMins, 0, 0);
+
+      // overnight shift
+      if (createBulkShiftDto.endMinutes < createBulkShiftDto.startMinutes) {
+        endLocal.setDate(endLocal.getDate() + 1);
+      }
+
+      const startUtc = fromZonedTime(startLocal, timezone);
+      const endUtc = fromZonedTime(endLocal, timezone);
+
+      shiftsData.push({
+        companyId: createBulkShiftDto.companyId,
+        locationId: createBulkShiftDto.locationId,
+        title: createBulkShiftDto.title,
+        description: createBulkShiftDto.description,
+        payRate: createBulkShiftDto.payRate,
+        status: createBulkShiftDto.status,
+        startTime: startUtc,
+        endTime: endUtc,
+        pharmacistId: createBulkShiftDto.pharmacistId,
+        published: createBulkShiftDto.published ?? false,
+      });
+    }
+
+    await this.prisma.shift.createMany({
+      data: shiftsData,
+    });
+
+    return { created: shiftsData.length };
   }
 
   async findAll(

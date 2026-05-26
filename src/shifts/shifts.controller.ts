@@ -1,14 +1,31 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ShiftsService } from './shifts.service';
 import { CreateShiftDto } from './dto/create-shift.dto';
 import { UpdateShiftDto } from './dto/update-shift.dto';
-import { ApiCreatedResponse, ApiOkResponse, ApiTags, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiTags,
+  ApiQuery,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { ShiftEntity } from './entities/shift.entity';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 import { CurrentUser } from 'src/auth/current-user.decorator';
 import { NotifyUsersDto } from 'src/email/dto/notify-users.dto';
 import { RequestShiftCancelDto } from 'src/email/dto/request-cancellation.dto';
+import { CreateBulkShiftsDto } from './dto/create-bulk-shifts.dto';
 
 @Controller('shifts')
 @ApiTags('Shifts')
@@ -23,7 +40,13 @@ export class ShiftsController {
     return this.shiftsService.create(createShiftDto);
   }
 
- 
+  @Post('bulk')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
+  createBulk(@Body() createBulkShiftDto: CreateBulkShiftsDto) {
+    return this.shiftsService.createBulk(createBulkShiftDto);
+  }
+
   @Get()
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
@@ -43,7 +66,7 @@ export class ShiftsController {
   @ApiOkResponse({ type: ShiftEntity, isArray: true })
   findAll(
     @CurrentUser() currentUser,
-    @Query() paginationDto: PaginationDto, 
+    @Query() paginationDto: PaginationDto,
     @Query('search') search?: string,
     @Query('locationId') locationId?: string,
     @Query('companyId') companyId?: string,
@@ -56,11 +79,25 @@ export class ShiftsController {
     @Query('status') selectedStatus?: string,
     @Query('published') published?: string,
     @Query('sortBy') sortBy?: string,
-    @Query('sortOrder') sortOrder?: "asc" | "desc",
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
-    return this.shiftsService.findAll(currentUser, paginationDto, search, 
-      locationId, companyId, pharmacistId, shiftId, fromDate, toDate,
-       minRate, maxRate, selectedStatus, published, sortBy, sortOrder);
+    return this.shiftsService.findAll(
+      currentUser,
+      paginationDto,
+      search,
+      locationId,
+      companyId,
+      pharmacistId,
+      shiftId,
+      fromDate,
+      toDate,
+      minRate,
+      maxRate,
+      selectedStatus,
+      published,
+      sortBy,
+      sortOrder,
+    );
   }
 
   @Get('/myshifts')
@@ -74,14 +111,22 @@ export class ShiftsController {
   @ApiOkResponse({ type: ShiftEntity })
   findPharmacistShifts(
     @CurrentUser() currentUser,
-    @Query() paginationDto: PaginationDto, 
+    @Query() paginationDto: PaginationDto,
     @Query('search') search?: string,
     @Query('shiftId') shiftId?: string,
     @Query('status') selectedStatus?: string,
     @Query('from') fromDate?: Date,
     @Query('to') toDate?: Date,
   ) {
-    return this.shiftsService.findPharmacistShifts(currentUser, paginationDto, search, shiftId, selectedStatus, fromDate, toDate);
+    return this.shiftsService.findPharmacistShifts(
+      currentUser,
+      paginationDto,
+      search,
+      shiftId,
+      selectedStatus,
+      fromDate,
+      toDate,
+    );
   }
 
   @Get('/allmyshifts')
@@ -94,9 +139,12 @@ export class ShiftsController {
     @Query() paginationDto: PaginationDto,
     @Query('companyId') companyId?: string,
   ) {
-    return this.shiftsService.findAllUserShifts(currentUser, paginationDto, companyId);
+    return this.shiftsService.findAllUserShifts(
+      currentUser,
+      paginationDto,
+      companyId,
+    );
   }
-
 
   @Get('/date')
   @UseGuards(FirebaseAuthGuard)
@@ -105,10 +153,14 @@ export class ShiftsController {
   @ApiOkResponse({ type: ShiftEntity, isArray: true })
   findShiftsByDate(
     @CurrentUser() currentUser,
-    @Query() paginationDto: PaginationDto, 
+    @Query() paginationDto: PaginationDto,
     @Query('date') date?: string,
   ) {
-    return this.shiftsService.findShiftsByDate(currentUser, paginationDto, date);
+    return this.shiftsService.findShiftsByDate(
+      currentUser,
+      paginationDto,
+      date,
+    );
   }
 
   @Get('/latest')
@@ -121,7 +173,11 @@ export class ShiftsController {
     @Query() paginationDto: PaginationDto,
     @Query('companyId') companyId?: string,
   ) {
-    return this.shiftsService.findLatestShifts(currentUser, paginationDto, companyId);
+    return this.shiftsService.findLatestShifts(
+      currentUser,
+      paginationDto,
+      companyId,
+    );
   }
 
   @Get('/month')
@@ -134,7 +190,11 @@ export class ShiftsController {
     @Query() paginationDto: PaginationDto,
     @Query('month') month?: string,
   ) {
-    return this.shiftsService.findMonthShifts(currentUser, paginationDto, month);
+    return this.shiftsService.findMonthShifts(
+      currentUser,
+      paginationDto,
+      month,
+    );
   }
 
   @Get('/week')
@@ -145,7 +205,8 @@ export class ShiftsController {
   findWeekShifts(
     @CurrentUser() currentUser,
     @Query() paginationDto: PaginationDto,
-    @Query('week') week: "current" | "last" | "beforeLast" | "next" | "afterNext",
+    @Query('week')
+    week: 'current' | 'last' | 'beforeLast' | 'next' | 'afterNext',
   ) {
     return this.shiftsService.findWeekShifts(currentUser, paginationDto, week);
   }
@@ -162,9 +223,7 @@ export class ShiftsController {
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
   @ApiCreatedResponse({ type: ShiftEntity })
-  update(
-    @Param('id') id: string, 
-    @Body() updateShiftDto: UpdateShiftDto) {
+  update(@Param('id') id: string, @Body() updateShiftDto: UpdateShiftDto) {
     return this.shiftsService.update(id, updateShiftDto);
   }
 
@@ -172,9 +231,7 @@ export class ShiftsController {
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
   @ApiCreatedResponse({ type: ShiftEntity })
-  takeShift(
-    @Param('id') id: string, 
-    @Body() updateShiftDto: UpdateShiftDto ) {
+  takeShift(@Param('id') id: string, @Body() updateShiftDto: UpdateShiftDto) {
     return this.shiftsService.takeShift(id, updateShiftDto);
   }
 
@@ -207,5 +264,4 @@ export class ShiftsController {
   ) {
     return this.shiftsService.requestCancellation(id, requestShiftCancelDto);
   }
-
 }
