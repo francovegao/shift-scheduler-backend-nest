@@ -1,8 +1,25 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, NotFoundException, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  NotFoundException,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { ApiCreatedResponse, ApiOkResponse, ApiQuery, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiQuery,
+  ApiTags,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { UserEntity } from './entities/user.entity';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
@@ -24,7 +41,7 @@ export class UsersController {
   @Post('/firebase')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
-  @ApiCreatedResponse({   })
+  @ApiCreatedResponse({})
   createFirebaseUser(@Body() createFirebaseUserDto: CreateFirebaseUserDto) {
     return this.usersService.createFirebaseUser(createFirebaseUserDto);
   }
@@ -39,14 +56,23 @@ export class UsersController {
   @ApiQuery({ name: 'sortOrder', required: false, type: String })
   @ApiOkResponse({ type: UserEntity, isArray: true })
   findAll(
-    @Query() paginationDto: PaginationDto, 
+    @Query() paginationDto: PaginationDto,
     @Query('search') search?: string,
     @Query('locationId') locationId?: string,
     @Query('companyId') companyId?: string,
     @Query('sortBy') sortBy?: string,
-    @Query('sortOrder') sortOrder?: "asc" | "desc",
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+    @Query('userRole') userRole?: string,
   ) {
-    return this.usersService.findAll(paginationDto, search, locationId, companyId, sortBy, sortOrder);
+    return this.usersService.findAll(
+      paginationDto,
+      search,
+      locationId,
+      companyId,
+      sortBy,
+      sortOrder,
+      userRole,
+    );
   }
 
   @Get('/pharmacists')
@@ -57,12 +83,17 @@ export class UsersController {
   @ApiQuery({ name: 'sortOrder', required: false, type: String })
   @ApiOkResponse({ type: UserEntity, isArray: true })
   findPharmacists(
-    @Query() paginationDto: PaginationDto, 
+    @Query() paginationDto: PaginationDto,
     @Query('search') search?: string,
     @Query('sortBy') sortBy?: string,
-    @Query('sortOrder') sortOrder?: "asc" | "desc",
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
-    return this.usersService.findPharmacists(paginationDto, search, sortBy, sortOrder);
+    return this.usersService.findPharmacists(
+      paginationDto,
+      search,
+      sortBy,
+      sortOrder,
+    );
   }
 
   @Get(':id')

@@ -47,7 +47,7 @@ export class EmailService {
     const startTime = formatTime(shift.startTime, shift.company.timezone);
     const endTime = formatTime(shift.endTime, shift.company.timezone);
 
-    const htmlContent = `<p>You have taken a shift at <strong>${shift.company.name}</strong></p>
+    const htmlContent = `<p>You have a new shift at <strong>${shift.company.name}</strong></p>
                               <p>Shift Information<br>
                               Date: <strong>${shiftDate}</strong><br>
                               From: <strong>${startTime}</strong><br>
@@ -321,9 +321,9 @@ export class EmailService {
                               email: <strong>${shift?.pharmacist?.user.email}</strong></p>
                               <h3>Cancel Reason</h3>
                               <p>Reason: <strong>${cancellationReason}</strong><br>
-                              <p>To approve this request, please log in to
+                              <p>To review this request, please log in to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a> and
-                              cancel this shift.</p>
+                              process the request.</p>
                               <p>Thank you,<br>
                               Shift Happens Team</p>`;
 
@@ -620,6 +620,128 @@ export class EmailService {
       );
       this.logger.error(
         'Unexpected error sending emails',
+        (error as Error).stack,
+      );
+      throw error;
+    }
+  }
+
+  //Send this email when a Shift Cancellation Request is rejected
+  async emailPharmacistCancelRequestRejected(
+    to: string,
+    shift: ShiftWithCompany,
+  ) {
+    const templateName = 'cancel_request_rejected';
+    const subject = `Shift Cancel Request Rejected at ${shift.company.name}`;
+
+    const shiftDate = formatDate(shift.startTime, shift.company.timezone);
+    const startTime = formatTime(shift.startTime, shift.company.timezone);
+    const endTime = formatTime(shift.endTime, shift.company.timezone);
+
+    const htmlContent = `<p>Your shift cancellation request at <strong>${shift.company.name}</strong> has been rejected.</p>
+                          <p>Please be aware that you are still assigned for this shift.</p>
+                              <p>Shift Information<br>
+                              Date: <strong>${shiftDate}</strong><br>
+                              From: <strong>${startTime}</strong><br>
+                              To: <strong>${endTime}</strong><br>
+                              Notes: ${shift.title}<br>
+                              ${shift.description}</p>
+                              <p>To view all the details go to
+                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
+                              <p>Thank you,<br>
+                              Shift Happens Team</p>`;
+
+    try {
+      const { data, error } = await this.resend.emails.send({
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
+        to: [to],
+        subject: subject,
+        html: htmlContent,
+      });
+
+      if (error) throw new Error(JSON.stringify(error));
+
+      await this.logEmail({
+        to,
+        subject,
+        status: 'sent',
+        templateName,
+        providerMessageId: data.id,
+      });
+
+      this.logger.log('Email sent successfully');
+      return data;
+    } catch (error) {
+      await this.logEmail({
+        to,
+        subject,
+        status: 'failed',
+        templateName,
+        errorMessage: getErrorMessage(error),
+      });
+      this.logger.error(
+        'Unexpected error sending email',
+        (error as Error).stack,
+      );
+      throw error;
+    }
+  }
+
+  //Send this email when a Shift Cancellation Request is approved
+  async emailPharmacistCancelRequestApproved(
+    to: string,
+    shift: ShiftWithCompany,
+  ) {
+    const templateName = 'cancel_request_approved';
+    const subject = `Shift Cancel Request Approved at ${shift.company.name}`;
+
+    const shiftDate = formatDate(shift.startTime, shift.company.timezone);
+    const startTime = formatTime(shift.startTime, shift.company.timezone);
+    const endTime = formatTime(shift.endTime, shift.company.timezone);
+
+    const htmlContent = `<p>Your shift cancellation request at <strong>${shift.company.name}</strong> has been approved.</p>
+                          <p>Please be aware that you are no longer assigned for this shift.</p>
+                              <p>Shift Information<br>
+                              Date: <strong>${shiftDate}</strong><br>
+                              From: <strong>${startTime}</strong><br>
+                              To: <strong>${endTime}</strong><br>
+                              Notes: ${shift.title}<br>
+                              ${shift.description}</p>
+                              <p>To view all the details go to
+                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
+                              <p>Thank you,<br>
+                              Shift Happens Team</p>`;
+
+    try {
+      const { data, error } = await this.resend.emails.send({
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
+        to: [to],
+        subject: subject,
+        html: htmlContent,
+      });
+
+      if (error) throw new Error(JSON.stringify(error));
+
+      await this.logEmail({
+        to,
+        subject,
+        status: 'sent',
+        templateName,
+        providerMessageId: data.id,
+      });
+
+      this.logger.log('Email sent successfully');
+      return data;
+    } catch (error) {
+      await this.logEmail({
+        to,
+        subject,
+        status: 'failed',
+        templateName,
+        errorMessage: getErrorMessage(error),
+      });
+      this.logger.error(
+        'Unexpected error sending email',
         (error as Error).stack,
       );
       throw error;

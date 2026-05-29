@@ -75,6 +75,7 @@ model PharmacistProfile {
   companyPermissions  PharmacistCompanyPermission[]
   user                User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
   shifts              Shift[]
+  cancellationRequests ShiftCancellationRequest[]
 }
 
 model PharmacistCompanyPermission {
@@ -128,6 +129,7 @@ model Shift {
   location     Location?          @relation(fields: [locationId], references: [id])
   pharmacist   PharmacistProfile? @relation(fields: [pharmacistId], references: [id])
   series       ShiftSeries?       @relation(fields: [seriesId], references: [id])
+  cancellationRequests ShiftCancellationRequest[]
 
   @@index([companyId])
   @@index([locationId])
@@ -203,6 +205,22 @@ model EmailLog {
   user              User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model ShiftCancellationRequest {
+  id            String   @id @default(uuid())
+  shiftId       String
+  pharmacistId  String
+  reason        String
+  status        RequestStatus @default(pending)
+  createdAt     DateTime @default(now())
+  reviewedAt    DateTime?
+  reviewedBy    String?
+
+  shift         Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  pharmacist    PharmacistProfile @relation(fields: [pharmacistId], references: [id])
+
+  @@unique([shiftId, pharmacistId])
+}
+
 enum Role {
   admin
   pharmacy_manager
@@ -222,6 +240,7 @@ enum NotificationType {
   system
   payment
   reminder
+  cancellationRequest
 }
 
 enum FileType {
@@ -240,4 +259,10 @@ enum RepeatType {
 enum EmailStatus {
   sent
   failed
+}
+
+enum RequestStatus {
+  pending
+  approved
+  rejected
 }

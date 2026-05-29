@@ -48,6 +48,7 @@ export class UsersService {
     companyId?: string,
     sortBy?: string,
     sortOrder?: 'asc' | 'desc',
+    userRole?: string,
   ) {
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
@@ -80,6 +81,10 @@ export class UsersService {
 
     if (location) {
       where.OR = [{ locationId: location }];
+    }
+
+    if (userRole) {
+      where.OR = [{ role: userRole }];
     }
 
     //Sort filters

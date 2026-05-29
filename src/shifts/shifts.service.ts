@@ -1341,9 +1341,39 @@ export class ShiftsService {
       throw new ForbiddenException('Shift is no longer available');
     }
 
+    const existingRequest =
+      await this.prisma.shiftCancellationRequest.findFirst({
+        where: {
+          shiftId: id,
+          pharmacistId: requestShiftCancelDto.pharmacistProfileId,
+        },
+      });
+
+    if (existingRequest) {
+      throw new ForbiddenException(
+        'Cancellation already requested for this shift',
+      );
+    }
+
+    //Create ShiftCancellationRequest record
+    const cancellationReason = requestShiftCancelDto.cancelReason;
+
+    const cancellationRequest =
+      await this.prisma.shiftCancellationRequest.create({
+        data: {
+          shiftId: id,
+          pharmacistId: requestShiftCancelDto.pharmacistProfileId,
+          reason: cancellationReason,
+        },
+      });
+
+    //emit event for notifications
+    this.eventEmitter.emit(AppEvents.SHIFT_CANCELLATION_REQUESTED, {
+      cancellationRequest: cancellationRequest,
+    });
+
     //Send emails
     const contactPersonEmail = shift.company.contactEmail;
-    const cancellationReason = requestShiftCancelDto.cancelReason;
 
     const admins = await this.prisma.user.findMany({
       where: { role: 'admin' },
