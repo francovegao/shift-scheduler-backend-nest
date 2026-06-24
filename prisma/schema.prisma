@@ -76,6 +76,7 @@ model PharmacistProfile {
   user                User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
   shifts              Shift[]
   cancellationRequests ShiftCancellationRequest[]
+  workLogs            ShiftWorkLog[]
 }
 
 model PharmacistCompanyPermission {
@@ -130,6 +131,7 @@ model Shift {
   pharmacist   PharmacistProfile? @relation(fields: [pharmacistId], references: [id])
   series       ShiftSeries?       @relation(fields: [seriesId], references: [id])
   cancellationRequests ShiftCancellationRequest[]
+  workLogs     ShiftWorkLog[]
 
   @@index([companyId])
   @@index([locationId])
@@ -219,6 +221,27 @@ model ShiftCancellationRequest {
   pharmacist    PharmacistProfile @relation(fields: [pharmacistId], references: [id])
 
   @@unique([shiftId, pharmacistId])
+}
+
+model ShiftWorkLog {
+  id            String   @id @default(uuid())
+  shiftId       String
+  pharmacistId  String
+
+  clockIn       DateTime?
+  clockOut      DateTime?
+
+  durationHours Float?
+  isModified    Boolean   @default(false)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  shift         Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  pharmacist    PharmacistProfile @relation(fields: [pharmacistId], references: [id])
+
+  @@index([shiftId])
+  @@index([pharmacistId])
 }
 
 enum Role {

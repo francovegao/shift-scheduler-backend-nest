@@ -188,6 +188,7 @@ export class CompaniesService {
                 user: true,
               },
             },
+            workLogs: true,
           },
         },
       },

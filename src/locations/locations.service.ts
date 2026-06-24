@@ -76,134 +76,132 @@ export class LocationsService {
   }*/
 
   async findAll(
-  currentUser: any,
-  paginationDto: PaginationDto, 
-  search?: string, 
-  companyId?: string,
-  sortBy?: string,
-  sortOrder?: "asc" | "desc",
-) {
-  const { page = 1, limit = 10 } = paginationDto;
-  const skip = (page - 1) * limit;
+    currentUser: any,
+    paginationDto: PaginationDto,
+    search?: string,
+    companyId?: string,
+    sortBy?: string,
+    sortOrder?: 'asc' | 'desc',
+  ) {
+    const { page = 1, limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
 
-  // Build dynamic filters
-  const where: any = { AND: [] };
+    // Build dynamic filters
+    const where: any = { AND: [] };
 
-  // Role-based scoping
-  if (currentUser.role === 'pharmacy_manager') {
-    where.AND.push({ companyId: currentUser.companyId });
-  }
-
-  // External filter by companyId (only if provided by admin request)
-  if (companyId) {
-    where.AND.push({ companyId });
-  }
-
-  //Search filter
-  if (search) {
-    where.AND.push({
-      OR: [
-        { name: { contains: search, mode: 'insensitive' } },
-        { legalName: { contains: search, mode: 'insensitive' } },
-        { GSTNumber: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search, mode: 'insensitive' } },
-        { address: { contains: search, mode: 'insensitive' } },
-        { city: { contains: search, mode: 'insensitive' } },
-        { province: { contains: search, mode: 'insensitive' } },
-        { postalCode: { contains: search, mode: 'insensitive' } },
-      ],
-    });
-  }
-
-      
-  //Sort filters
-  let orderBy: any = [];
-
-  if(sortBy){
-    const direction = sortOrder === "desc" ? "desc" : "asc";
-
-    switch(sortBy){
-      case "name":
-        orderBy = [{ name: direction }];
-        break;
-      case "legalName":
-        orderBy = [{ legalName: direction }];
-        break;
-      case "company":
-          orderBy = [
-            { company: { name: direction } },
-          ];
-          break;
-      default:
-        orderBy = [{ company: { createdAt: "desc" }}];
+    // Role-based scoping
+    if (currentUser.role === 'pharmacy_manager') {
+      where.AND.push({ companyId: currentUser.companyId });
     }
-  }else{
-    orderBy = [{ company: { createdAt: "desc" }}];
+
+    // External filter by companyId (only if provided by admin request)
+    if (companyId) {
+      where.AND.push({ companyId });
+    }
+
+    //Search filter
+    if (search) {
+      where.AND.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { legalName: { contains: search, mode: 'insensitive' } },
+          { GSTNumber: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search, mode: 'insensitive' } },
+          { address: { contains: search, mode: 'insensitive' } },
+          { city: { contains: search, mode: 'insensitive' } },
+          { province: { contains: search, mode: 'insensitive' } },
+          { postalCode: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    //Sort filters
+    let orderBy: any = [];
+
+    if (sortBy) {
+      const direction = sortOrder === 'desc' ? 'desc' : 'asc';
+
+      switch (sortBy) {
+        case 'name':
+          orderBy = [{ name: direction }];
+          break;
+        case 'legalName':
+          orderBy = [{ legalName: direction }];
+          break;
+        case 'company':
+          orderBy = [{ company: { name: direction } }];
+          break;
+        default:
+          orderBy = [{ company: { createdAt: 'desc' } }];
+      }
+    } else {
+      orderBy = [{ company: { createdAt: 'desc' } }];
+    }
+
+    const [locations, total] = await Promise.all([
+      this.prisma.location.findMany({
+        where,
+        include: { company: true },
+        skip,
+        take: limit,
+        orderBy,
+      }),
+      this.prisma.location.count({ where }),
+    ]);
+
+    return {
+      data: locations,
+      meta: {
+        totalItems: total,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
-
-  const [locations, total] = await Promise.all([
-    this.prisma.location.findMany({
-      where,
-      include: { company: true },
-      skip,
-      take: limit,
-      orderBy,
-    }),
-    this.prisma.location.count({ where }),
-  ]);
-
-  return {
-    data: locations,
-    meta: {
-      totalItems: total,
-      currentPage: page,
-      itemsPerPage: limit,
-      totalPages: Math.ceil(total / limit),
-    },
-  };
-}  
 
   async findOne(id: string) {
-    const location = await this.prisma.location.findUnique({ 
+    const location = await this.prisma.location.findUnique({
       where: { id },
       include: {
         managers: true,
         company: true,
         shifts: true,
-      }
+      },
     });
 
     if (!location) {
-        throw new NotFoundException(`Location with ID "${id}" not found.`);
+      throw new NotFoundException(`Location with ID "${id}" not found.`);
     }
 
-    const [openShifts, takenShifts, completedShifts, cancelledShifts] = await this.prisma.$transaction([
-      this.prisma.shift.count({
+    const [openShifts, takenShifts, completedShifts, cancelledShifts] =
+      await this.prisma.$transaction([
+        this.prisma.shift.count({
           where: {
-          locationId: location.id,
-          status: 'open',
-        },
-      }),
-      this.prisma.shift.count({
+            locationId: location.id,
+            status: 'open',
+          },
+        }),
+        this.prisma.shift.count({
           where: {
-          locationId: location.id,
-          status: 'taken',
-        },
-      }),
-      this.prisma.shift.count({
+            locationId: location.id,
+            status: 'taken',
+          },
+        }),
+        this.prisma.shift.count({
           where: {
-          locationId: location.id,
-          status: 'completed',
-        },
-      }),
-      this.prisma.shift.count({
+            locationId: location.id,
+            status: 'completed',
+          },
+        }),
+        this.prisma.shift.count({
           where: {
-          locationId: location.id,
-          status: 'cancelled',
-        },
-      }),
-    ]);
+            locationId: location.id,
+            status: 'cancelled',
+          },
+        }),
+      ]);
 
     const currentYear = new Date().getFullYear();
     const startOfYear = `${currentYear}-01-01`;
@@ -227,15 +225,14 @@ export class LocationsService {
         totalCompleted: completedShifts,
         totalCancelled: cancelledShifts,
         monthlyCounts,
-      }
+      },
     };
 
     return response;
-
   }
 
   async findShifts(id: string) {
-    const location = await this.prisma.location.findUnique({ 
+    const location = await this.prisma.location.findUnique({
       where: { id },
       include: {
         shifts: {
@@ -247,19 +244,23 @@ export class LocationsService {
                 user: true,
               },
             },
-          }
+            workLogs: true,
+          },
         },
-      }
-     });
+      },
+    });
 
-     return {
-      data: location?.shifts
-     }
+    return {
+      data: location?.shifts,
+    };
   }
 
   update(id: string, updateLocationDto: UpdateLocationDto) {
     //return `This action updates a #${id} location`;
-    return this.prisma.location.update({ where: { id }, data: updateLocationDto });
+    return this.prisma.location.update({
+      where: { id },
+      data: updateLocationDto,
+    });
   }
 
   remove(id: string) {

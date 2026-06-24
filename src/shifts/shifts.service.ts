@@ -208,6 +208,7 @@ export class ShiftsService {
           user: true,
         },
       },
+      workLogs: true,
     };
 
     //Sort filters
@@ -597,6 +598,7 @@ export class ShiftsService {
           user: true,
         },
       },
+      workLogs: true,
     };
 
     const [shifts, total, open, taken, completed, cancelled] =
@@ -697,6 +699,7 @@ export class ShiftsService {
           user: true,
         },
       },
+      workLogs: true,
     };
 
     //Search filter
@@ -807,6 +810,7 @@ export class ShiftsService {
           user: true,
         },
       },
+      workLogs: true,
     };
 
     const [shifts, total] = await Promise.all([
@@ -1397,6 +1401,145 @@ export class ShiftsService {
     }
 
     return { success: true };
+  }
+
+  async clockIn(id: string, currentUser: any, pharmacistId?: string) {
+    const targetPharmacistId = await this.resolvePharmacistId(
+      currentUser,
+      pharmacistId,
+    );
+
+    const shift = await this.prisma.shift.findUnique({
+      where: {
+        id,
+        pharmacistId: targetPharmacistId,
+        status: 'taken',
+      },
+      select: { id: true },
+    });
+
+    if (!shift) {
+      throw new NotFoundException('Shift not found or not assigned');
+    }
+
+    const existingOpenLog = await this.prisma.shiftWorkLog.findFirst({
+      where: {
+        shiftId: id,
+        pharmacistId: targetPharmacistId,
+        clockOut: null,
+      },
+    });
+
+    if (existingOpenLog) {
+      throw new ForbiddenException('Already clocked in');
+    }
+
+    await this.prisma.shiftWorkLog.create({
+      data: {
+        shiftId: id,
+        pharmacistId: targetPharmacistId,
+        clockIn: new Date(),
+      },
+    });
+
+    return { success: true };
+  }
+
+  async clockOut(id: string, currentUser: any, pharmacistId?: string) {
+    const targetPharmacistId = await this.resolvePharmacistId(
+      currentUser,
+      pharmacistId,
+    );
+
+    const shift = await this.prisma.shift.findUnique({
+      where: {
+        id,
+        pharmacistId: targetPharmacistId,
+      },
+      select: { id: true },
+    });
+
+    if (!shift) {
+      throw new NotFoundException(
+        'Shift not found or not assigned to this pharmacist',
+      );
+    }
+
+    const existingOpenLog = await this.prisma.shiftWorkLog.findFirst({
+      where: {
+        shiftId: id,
+        pharmacistId: targetPharmacistId,
+        clockOut: null,
+      },
+      orderBy: { clockIn: 'desc' },
+    });
+
+    if (!existingOpenLog || !existingOpenLog.clockIn) {
+      throw new BadRequestException(
+        'You do not have an active clock-in session for this shift',
+      );
+    }
+
+    const clockOutTime = new Date();
+    const diffInMilliseconds =
+      clockOutTime.getTime() - existingOpenLog.clockIn.getTime();
+    const durationHours =
+      Math.round((diffInMilliseconds / (1000 * 60 * 60)) * 100) / 100;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.shiftWorkLog.update({
+        where: {
+          id: existingOpenLog.id,
+          clockOut: null,
+        },
+        data: {
+          clockOut: clockOutTime,
+          durationHours,
+          isModified: false,
+        },
+      });
+
+      await tx.shift.update({
+        where: { id },
+        data: { status: 'completed' },
+      });
+    });
+
+    return { success: true };
+  }
+
+  private async resolvePharmacistId(
+    currentUser: any,
+    queryPharmacistId: string | undefined,
+  ) {
+    if (!currentUser || !currentUser.role) {
+      throw new ForbiddenException('Invalid user context');
+    }
+
+    if (currentUser.role === 'relief_pharmacist') {
+      // Get pharmacist profile
+      const pharmacist = await this.prisma.pharmacistProfile.findUnique({
+        where: { userId: currentUser.id },
+      });
+
+      if (!pharmacist) {
+        throw new NotFoundException('Pharmacist profile not found');
+      }
+
+      return pharmacist.id;
+    }
+
+    if (currentUser.role === 'admin') {
+      if (!queryPharmacistId) {
+        throw new BadRequestException(
+          'pharmacistId query parameter is required',
+        );
+      }
+
+      return queryPharmacistId;
+    }
+
+    throw new ForbiddenException('Unauthorized to clock in');
   }
 
   //Auto complete shifts function for nightly job

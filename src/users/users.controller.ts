@@ -148,8 +148,14 @@ export class UsersController {
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
   @ApiOkResponse({ type: UserEntity })
-  findShifts(@Param('id') id: string) {
-    return this.usersService.findShifts(id);
+  findShifts(
+    @Param('id') id: string,
+    @Query('status') status?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query() paginationDto?: PaginationDto,
+  ) {
+    return this.usersService.findShifts(id, status, from, to, paginationDto);
   }
 
   @Get('/notifications/:id')

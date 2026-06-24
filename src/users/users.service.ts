@@ -354,7 +354,35 @@ export class UsersService {
     };
   }
 
-  async findShifts(id: string) {
+  async findShifts(
+    id: string,
+    status?: string,
+    from?: string,
+    to?: string,
+    paginationDto?: PaginationDto,
+  ) {
+    const where: any = {};
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (from || to) {
+      where.startTime = {};
+
+      if (from) {
+        const fromDate = new Date(from);
+        fromDate.setUTCHours(0, 0, 0, 0);
+        where.startTime.gte = fromDate;
+      }
+
+      if (to) {
+        const toDate = new Date(to);
+        toDate.setUTCHours(23, 59, 59, 999);
+        where.startTime.lte = toDate;
+      }
+    }
+
     const user = await this.prisma.user.findUnique({
       where: {
         id: id,
@@ -364,6 +392,10 @@ export class UsersService {
         pharmacistProfile: {
           include: {
             shifts: {
+              where,
+              orderBy: {
+                startTime: 'asc',
+              },
               include: {
                 company: true,
                 location: true,
@@ -372,7 +404,9 @@ export class UsersService {
                     user: true,
                   },
                 },
+                workLogs: true,
               },
+              take: paginationDto?.limit ? paginationDto.limit : undefined,
             },
           },
         },

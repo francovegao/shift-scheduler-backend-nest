@@ -8,6 +8,8 @@ import {
   Delete,
   Query,
   UseGuards,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { ShiftsService } from './shifts.service';
 import { CreateShiftDto } from './dto/create-shift.dto';
@@ -257,11 +259,53 @@ export class ShiftsController {
   @Post(':id/request-cancellation')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
-  @ApiOkResponse({ type: String })
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      properties: { success: { type: 'boolean' } },
+    },
+  })
   requestCancellation(
     @Param('id') id: string,
     @Body() requestShiftCancelDto: RequestShiftCancelDto,
   ) {
     return this.shiftsService.requestCancellation(id, requestShiftCancelDto);
+  }
+
+  @Post(':id/clock-in')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      properties: { success: { type: 'boolean' } },
+    },
+  })
+  clockIn(
+    @Param('id') id: string,
+    @CurrentUser() currentUser,
+    @Query('pharmacistId') pharmacistId?: string,
+  ) {
+    return this.shiftsService.clockIn(id, currentUser, pharmacistId);
+  }
+
+  @Post(':id/clock-out')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({
+    schema: {
+      type: 'object',
+      properties: { success: { type: 'boolean' } },
+    },
+  })
+  clockOut(
+    @Param('id') id: string,
+    @CurrentUser() currentUser,
+    @Query('pharmacistId') pharmacistId?: string,
+  ) {
+    return this.shiftsService.clockOut(id, currentUser, pharmacistId);
   }
 }
