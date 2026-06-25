@@ -13,6 +13,12 @@ type ShiftWithCompanyAddress = Shift & {
     city: string | null;
     province: string | null;
   };
+  pharmacist: {
+    user: {
+      email: string;
+      firstName: string | null;
+    };
+  } | null;
 };
 type ShiftWithPharmacist = Shift & {
   company: {
@@ -41,26 +47,32 @@ export class EmailService {
 
   async emailPharmacistShiftTaken(to: string, shift: ShiftWithCompanyAddress) {
     const templateName = 'shift_taken';
-    const subject = `New Shift Assigned at ${shift.company.name}`;
+    const subject = `Shift Confirmed at ${shift.company.name}`;
 
     const shiftDate = formatDate(shift.startTime, shift.company.timezone);
     const startTime = formatTime(shift.startTime, shift.company.timezone);
     const endTime = formatTime(shift.endTime, shift.company.timezone);
 
-    const htmlContent = `<p>You have a new shift at <strong>${shift.company.name}</strong></p>
-                              <p>Shift Information<br>
+    const htmlContent = `<p>Hi ${shift?.pharmacist?.user?.firstName},</p>
+                              <p>This email confirms that you have successfully accepted a shift at <strong>${shift.company.name}</strong></p>
+                              <p><strong>Shift Details</strong><br>
+                              Location: <strong>${shift.company.name}</strong><br>
                               Date: <strong>${shiftDate}</strong><br>
-                              From: <strong>${startTime}</strong><br>
-                              To: <strong>${endTime}</strong><br>
+                              Time: <strong>${startTime} - ${endTime}</strong><br>
                               Notes: ${shift.title}<br>
                               ${shift.description}</p>
                               <a href="${generateGCalLink(shift)}">
                               Click here to add shift
                               to Google Calendar</a>
-                              <p>To view all the details go to
-                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Thank you,<br>
-                              Shift Happens Team</p>`;
+                              <p>We’ll reach out <strong>24 hours before your shift</strong> with your pharmacy access codes and login details.<br>
+                              Once you get to the store, you’ll find a <strong>location-specific Pharmacist Relief Binder</strong> with<br>
+                              guidance on workflows, procedures, and key contacts to help your shift run smoothly.</p>
+                              <p>If you have any questions or concerns, please reach out to the Pharmacy manager. You will find<br>
+                              the contact information located in the accepted shift on the portal.<br> 
+                              <a href="https://shifthappens.vercel.app/">Click here to log in</a></p>
+                              <p>Thank you for supporting our pharmacy network.</p>
+                              <p>Cheers,<br>
+                              CurisRx Pharmacy</p>`;
 
     try {
       const { data, error } = await this.resend.emails.send({
@@ -169,7 +181,8 @@ export class EmailService {
     }
   }
 
-  async emailPharmacistShiftOpen(to: string, shift: ShiftWithCompany) {
+  //Send this email manually by admin when wants to notify pharmacists about a specific open available shift
+  async emailPharmacistSpecificShiftOpen(to: string, shift: ShiftWithCompany) {
     const templateName = 'open_shift_manual_notification';
     const subject = `Shift Open at ${shift.company.name}`;
 
@@ -206,6 +219,48 @@ export class EmailService {
         templateName,
         providerMessageId: data.id,
       });
+
+      this.logger.log('Email sent successfully');
+      return data;
+    } catch (error) {
+      await this.logEmail({
+        to,
+        subject,
+        status: 'failed',
+        templateName,
+        errorMessage: getErrorMessage(error),
+      });
+
+      this.logger.error(
+        'Unexpected error sending email',
+        (error as Error).stack,
+      );
+      throw error;
+    }
+  }
+
+  //Send this email manually by admin when wants to notify pharmacists about multiple open available shifts
+  async emailPharmacistMultipleShiftsOpen(to: string, firstName?: string) {
+    const templateName = 'multiple_open_shifts_manual_notification';
+    const subject = `Open shifts - Now Available`;
+
+    const htmlContent = `<p>Hi ${firstName},</p>
+                              <p>Open shifts are now available.</p>
+                              <p>Visit your dashboard to view details and claim shifts!<br>
+                              <a href="https://shifthappens.vercel.app/">Click here</a>  to view available shifts and add to your calendar</p>
+                              <p>Any questions about accepting shifts, please reach out!</p>
+                              <p>Cheers,<br>
+                              CurisRx Pharmacy</p>`;
+
+    try {
+      const { data, error } = await this.resend.emails.send({
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
+        to: [to],
+        subject: subject,
+        html: htmlContent,
+      });
+
+      if (error) throw new Error(JSON.stringify(error));
 
       await this.logEmail({
         to,
@@ -748,18 +803,29 @@ export class EmailService {
     }
   }
 
-  async emailNewUser(to: string, email: string, password: string) {
+  async emailNewUser(to: string, password: string, firstName?: string) {
     const templateName = 'new_account_created';
-    const subject = `Account created at Shift Happens App`;
+    const subject = `Your Account has been Created at Shift Happens`;
 
-    const htmlContent = `<p>Your account has been created.</p>
-                              <p>Log in Information<br>
-                              email: <strong>${email}</strong><br>
+    const htmlContent = `<p>Hi ${firstName},</p>
+                              <p>Welcome to Shift Happens! Your account has been successfully created. This portal will be <br>
+                              used to find open shifts, see accepted shifts, and have direct contact with any of the CurisRx<br>
+                              store managers!</p>
+                              <p>Below you will find your login information:<br>
+                              Email: <strong>${to}</strong><br>
                               Temporary Password: <strong>${password}</strong></p>
-                              <p>Please log in and <strong>update your password</strong> in the profile page.<br>
-                              <a href="https://shifthappens.vercel.app">Click here to log in.</a></p>
-                              <p>Thank you,<br>
-                              Shift Happens Team</p>`;
+                              <p>Please log in and <strong>update your password</strong> in the profile tab located on the left hand side of the dashboard.</p>
+                              <p><strong>Login here:</strong> <a href="https://shifthappens.vercel.app">Click here to log in.</a></p>
+                              <p><strong>If this is your first time logging in, we recommend taking a minute to:</strong></p>
+                              <ul>
+                                <li>Complete your profile</li>
+                                <li>Explore the dashboard</li>
+                                <li>Check out the calendar to accept your first shift</li>
+                              </ul>
+                              <p>If you have any questions, our team is here to help.</p>
+                              <p>Welcome aboard, we're excited to have you!<br>
+                              Thank you,<br>
+                              CurisRx Pharmacy</p>`;
 
     try {
       const { data, error } = await this.resend.emails.send({

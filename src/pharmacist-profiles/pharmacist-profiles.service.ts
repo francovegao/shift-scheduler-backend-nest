@@ -2,10 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { CreatePharmacistProfileDto } from './dto/create-pharmacist-profile.dto';
 import { UpdatePharmacistProfileDto } from './dto/update-pharmacist-profile.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { NotifyUsersDto } from 'src/email/dto/notify-users.dto';
+import { EmailService } from 'src/email/email.service';
 
 @Injectable()
 export class PharmacistProfilesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   //CRUD operations
   async create(createPharmacistProfileDto: CreatePharmacistProfileDto) {
@@ -27,6 +32,31 @@ export class PharmacistProfilesService {
         companyPermissions: true,
       },
     });
+  }
+
+  async notifyOpenShifts(notifyUsersDto: NotifyUsersDto) {
+    //Send emails
+    const pharmacists = await this.prisma.pharmacistProfile.findMany({
+      where: {
+        id: {
+          in: notifyUsersDto.userIds,
+        },
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    await Promise.all(
+      pharmacists.map((pharmacist) =>
+        this.emailService.emailPharmacistMultipleShiftsOpen(
+          pharmacist.user.email,
+          pharmacist?.user?.firstName || undefined,
+        ),
+      ),
+    );
+
+    return { success: true };
   }
 
   findAll() {

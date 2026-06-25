@@ -20,6 +20,7 @@ import {
 import { PharmacistProfileEntity } from './entities/pharmacist-profile.entity';
 import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 import { CurrentUser } from 'src/auth/current-user.decorator';
+import { NotifyUsersDto } from 'src/email/dto/notify-users.dto';
 
 @Controller('pharmacist-profiles')
 @ApiTags('Pharmacist Profiles')
@@ -34,6 +35,14 @@ export class PharmacistProfilesController {
   @ApiCreatedResponse({ type: PharmacistProfileEntity })
   create(@Body() createPharmacistProfileDto: CreatePharmacistProfileDto) {
     return this.pharmacistProfilesService.create(createPharmacistProfileDto);
+  }
+
+  @Post('/notify-open-shifts')
+  @UseGuards(FirebaseAuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: String })
+  notifyOpenShifts(@Body() notifyUsersDto: NotifyUsersDto) {
+    return this.pharmacistProfilesService.notifyOpenShifts(notifyUsersDto);
   }
 
   @Get()

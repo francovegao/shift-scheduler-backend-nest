@@ -34,8 +34,8 @@ export class UsersService {
     if (newUser.email)
       this.emailService.emailNewUser(
         newUser.email,
-        newUser.email,
         createFirebaseUserDto.password,
+        createFirebaseUserDto.firstName,
       );
 
     return newUser;

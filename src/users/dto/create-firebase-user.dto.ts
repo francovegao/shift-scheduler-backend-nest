@@ -3,6 +3,7 @@ import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsNotEmpty,
+  IsOptional,
   IsString,
   MinLength,
 } from 'class-validator';
@@ -20,4 +21,10 @@ export class CreateFirebaseUserDto {
   @IsNotEmpty()
   @ApiProperty()
   password: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Transform(({ value }) => value.trim())
+  @ApiProperty({ required: false })
+  firstName?: string;
 }

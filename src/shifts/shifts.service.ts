@@ -429,6 +429,7 @@ export class ShiftsService {
           user: true,
         },
       },
+      workLogs: true,
     };
 
     //Search filter
@@ -1058,6 +1059,7 @@ export class ShiftsService {
             user: {
               select: {
                 email: true,
+                firstName: true,
               },
             },
           },
@@ -1195,6 +1197,7 @@ export class ShiftsService {
             user: {
               select: {
                 email: true,
+                firstName: true,
               },
             },
           },
@@ -1291,7 +1294,7 @@ export class ShiftsService {
 
     await Promise.all(
       pharmacists.map((pharmacist) =>
-        this.emailService.emailPharmacistShiftOpen(
+        this.emailService.emailPharmacistSpecificShiftOpen(
           pharmacist.user.email,
           shift,
         ),
