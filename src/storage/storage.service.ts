@@ -101,4 +101,28 @@ export class StorageService {
 
     return { url };
   }
+
+  async uploadCsvAndGetUrl(fileName: string, content: string) {
+    const targetBucketName = this.privateBucketName;
+
+    if (!targetBucketName) {
+      throw new InternalServerErrorException('Storage bucket not defined');
+    }
+
+    const bucket = this.storage.bucket(targetBucketName);
+    const file = bucket.file(fileName);
+
+    await file.save(content, {
+      contentType: 'text/csv',
+      resumable: false,
+    });
+
+    const [url] = await file.getSignedUrl({
+      version: 'v4',
+      action: 'read',
+      expires: Date.now() + 15 * 60 * 1000,
+    });
+
+    return url;
+  }
 }
