@@ -1,0 +1,13 @@
+#File used for devcontainer
+FROM node:24-bookworm-slim
+
+WORKDIR /app
+
+# Install Nest CLI globally for easy hot-reload and code generation inside the container
+RUN npm install -g @nestjs/cli
+
+# Expose port 8080 to match your devcontainer config and cloud deployment target
+EXPOSE 8080
+
+# Start NestJS in watch/development mode
+CMD ["sleep", "infinity"]
