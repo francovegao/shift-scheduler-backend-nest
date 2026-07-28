@@ -1,3 +1,8 @@
+/* eslint-disable @typescript-eslint/restrict-template-expressions */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   BadRequestException,
   ForbiddenException,
@@ -130,6 +135,7 @@ export class ShiftsService {
     published?: string,
     sortBy?: string,
     sortOrder?: 'asc' | 'desc',
+    timeFilter?: 'upcoming' | 'past',
   ) {
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
@@ -337,6 +343,21 @@ export class ShiftsService {
       });
     }
 
+    //Upcoming and Past filters
+    const now = new Date();
+
+    if (timeFilter === 'upcoming') {
+      where.AND.push({
+        startTime: { gte: now },
+      });
+    }
+
+    if (timeFilter === 'past') {
+      where.AND.push({
+        endTime: { lt: now },
+      });
+    }
+
     const [shifts, total] = await Promise.all([
       this.prisma.shift.findMany({
         where,
@@ -528,6 +549,7 @@ export class ShiftsService {
     currentUser: any,
     paginationDto: PaginationDto,
     companyId?: string,
+    timeFilter?: 'upcoming' | 'past',
   ) {
     const { page = 1, limit = 1000 } = paginationDto;
     const skip = (page - 1) * limit;
@@ -589,6 +611,21 @@ export class ShiftsService {
         status: 'open',
         published: true,
       };
+    }
+
+    //Upcoming and Past filters
+    const now = new Date();
+
+    if (timeFilter === 'upcoming') {
+      where.AND.push({
+        startTime: { gte: now },
+      });
+    }
+
+    if (timeFilter === 'past') {
+      where.AND.push({
+        endTime: { lt: now },
+      });
     }
 
     const include: any = {

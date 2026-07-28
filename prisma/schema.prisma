@@ -225,7 +225,7 @@ model ShiftCancellationRequest {
 
 model ShiftWorkLog {
   id            String   @id @default(uuid())
-  shiftId       String
+  shiftId       String   
   pharmacistId  String
 
   clockIn       DateTime?

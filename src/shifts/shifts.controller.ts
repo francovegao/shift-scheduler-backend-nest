@@ -65,6 +65,7 @@ export class ShiftsController {
   @ApiQuery({ name: 'published', required: false, type: String })
   @ApiQuery({ name: 'sortBy', required: false, type: String })
   @ApiQuery({ name: 'sortOrder', required: false, type: String })
+  @ApiQuery({ name: 'timeFilter', required: false, type: String })
   @ApiOkResponse({ type: ShiftEntity, isArray: true })
   findAll(
     @CurrentUser() currentUser,
@@ -82,6 +83,7 @@ export class ShiftsController {
     @Query('published') published?: string,
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
+    @Query('timeFilter') timeFilter?: 'upcoming' | 'past',
   ) {
     return this.shiftsService.findAll(
       currentUser,
@@ -99,6 +101,7 @@ export class ShiftsController {
       published,
       sortBy,
       sortOrder,
+      timeFilter,
     );
   }
 
@@ -135,16 +138,19 @@ export class ShiftsController {
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
   @ApiQuery({ name: 'companyId', required: false, type: String })
+  @ApiQuery({ name: 'timeFilter', required: false, type: String })
   @ApiOkResponse({ type: ShiftEntity })
   findAllUserShifts(
     @CurrentUser() currentUser,
     @Query() paginationDto: PaginationDto,
     @Query('companyId') companyId?: string,
+    @Query('timeFilter') timeFilter?: 'upcoming' | 'past',
   ) {
     return this.shiftsService.findAllUserShifts(
       currentUser,
       paginationDto,
       companyId,
+      timeFilter,
     );
   }
 
