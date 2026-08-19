@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Shift } from '../../generated/prisma/client';
+import { PharmacistRequest, Shift } from '../../generated/prisma/client';
 import { Resend } from 'resend';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -364,7 +364,7 @@ export class EmailService {
     const startTime = formatTime(shift.startTime, shift.company.timezone);
     const endTime = formatTime(shift.endTime, shift.company.timezone);
 
-    const htmlContent = `<p>A pharmacist wants to cancel a shift at at <strong>${shift.company.name}</strong>.</p>
+    const htmlContent = `<p>A pharmacist wants to cancel a shift at <strong>${shift.company.name}</strong>.</p>
                               <h3>Shift Information</h3>
                               <p>Date: <strong>${shiftDate}</strong><br>
                               From: <strong>${startTime}</strong><br>
@@ -803,6 +803,7 @@ export class EmailService {
     }
   }
 
+  //Send this email when a new user is added to the system
   async emailNewUser(to: string, password: string, firstName?: string) {
     const templateName = 'new_account_created';
     const subject = `Your Account has been Created at Shift Happens`;
@@ -825,6 +826,183 @@ export class EmailService {
                               <p>If you have any questions, our team is here to help.</p>
                               <p>Welcome aboard, we're excited to have you!<br>
                               Thank you,<br>
+                              CurisRx & Pharm Drugstore</p>`;
+
+    try {
+      const { data, error } = await this.resend.emails.send({
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
+        to: [to],
+        subject: subject,
+        html: htmlContent,
+      });
+
+      if (error) throw new Error(JSON.stringify(error));
+
+      await this.logEmail({
+        to,
+        subject,
+        status: 'sent',
+        templateName,
+        providerMessageId: data.id,
+      });
+
+      this.logger.log('Email sent successfully');
+      return data;
+    } catch (error) {
+      await this.logEmail({
+        to,
+        subject,
+        status: 'failed',
+        templateName,
+        errorMessage: getErrorMessage(error),
+      });
+      this.logger.error(
+        'Unexpected error sending email',
+        (error as Error).stack,
+      );
+      throw error;
+    }
+  }
+
+  //Send this email to admins when a Pharmacist Request is created
+  async emailPharmacistRequestCreated(
+    adminEmails: string[],
+    pharmacistRequest: PharmacistRequest,
+    submittedByName: string,
+  ) {
+    const templateName = 'new_pharmacist_request';
+    const subject = `New request to add a pharmacist`;
+
+    const htmlContent = `<p>A new request to add a pharmacist has been received.</p>
+                              <h3>Request Information</h3>
+                              <p>Pharmacist Name: <strong>${pharmacistRequest.firstName} ${pharmacistRequest.lastName}</strong><br>
+                              Email: <strong>${pharmacistRequest.email}</strong><br>
+                              Submitted By: <strong>${submittedByName}</strong><br></p>
+                             
+                              <p>To review this request, please log in to
+                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a> and
+                              process the request.</p>
+                              <p>Thank you,<br>
+                              CurisRx & Pharm Drugstore</p>`;
+
+    try {
+      const batchEmails = adminEmails.map((email) => ({
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
+        to: [email],
+        subject: subject,
+        html: htmlContent,
+      }));
+
+      const { data, error } = await this.resend.batch.send(batchEmails);
+
+      if (error) throw new Error(JSON.stringify(error));
+
+      await Promise.all(
+        adminEmails.map((to, index) =>
+          this.logEmail({
+            to,
+            subject,
+            status: 'sent',
+            templateName,
+            providerMessageId: data?.data[index]?.id,
+          }),
+        ),
+      );
+
+      this.logger.log('Email sent successfully');
+      return data;
+    } catch (error) {
+      await Promise.all(
+        adminEmails.map((to) =>
+          this.logEmail({
+            to,
+            subject,
+            status: 'failed',
+            templateName,
+            errorMessage: getErrorMessage(error),
+          }),
+        ),
+      );
+      this.logger.error(
+        'Unexpected error sending email',
+        (error as Error).stack,
+      );
+      throw error;
+    }
+  }
+
+  //Send this email when a pharmacist request is approved
+  async emailPharmacistRequestApproved(
+    to: string,
+    pharmacistRequest: PharmacistRequest,
+  ) {
+    const templateName = 'pharmacist_request_approved';
+    const subject = `Your request to add a pharmacist has been approved`;
+
+    const htmlContent = `<p>Your request to add a pharmacist has been approved.</p>
+                          <p>The pharmacist has been added to the system.</p>
+                              <h3>Pharmacist Information</h3>
+                              <p>Pharmacist Name: <strong>${pharmacistRequest.firstName} ${pharmacistRequest.lastName}</strong><br>
+                              Email: <strong>${pharmacistRequest.email}</strong><br></p>
+
+                              <p>To view all the details go to
+                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
+                              <p>Thank you,<br>
+                              CurisRx & Pharm Drugstore</p>`;
+
+    try {
+      const { data, error } = await this.resend.emails.send({
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
+        to: [to],
+        subject: subject,
+        html: htmlContent,
+      });
+
+      if (error) throw new Error(JSON.stringify(error));
+
+      await this.logEmail({
+        to,
+        subject,
+        status: 'sent',
+        templateName,
+        providerMessageId: data.id,
+      });
+
+      this.logger.log('Email sent successfully');
+      return data;
+    } catch (error) {
+      await this.logEmail({
+        to,
+        subject,
+        status: 'failed',
+        templateName,
+        errorMessage: getErrorMessage(error),
+      });
+      this.logger.error(
+        'Unexpected error sending email',
+        (error as Error).stack,
+      );
+      throw error;
+    }
+  }
+
+  //Send this email when a pharmacist request is rejected
+  async emailPharmacistRequestRejected(
+    to: string,
+    pharmacistRequest: PharmacistRequest,
+  ) {
+    const templateName = 'pharmacist_request_rejected';
+    const subject = `Your request to add a pharmacist has been rejected`;
+
+    const htmlContent = `<p>Your request to add a pharmacist has been rejected.</p>
+                          <p>The pharmacist was not added to the system.</p>
+                              <h3>Pharmacist Information</h3>
+                              <p>Pharmacist Name: <strong>${pharmacistRequest.firstName} ${pharmacistRequest.lastName}</strong><br>
+                              Email: <strong>${pharmacistRequest.email}</strong><br></p>
+
+                              <p>To view all the details go to
+                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
+                              <p>Thank you,<br>
                               CurisRx & Pharm Drugstore</p>`;
 
     try {

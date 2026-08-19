@@ -4,7 +4,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { CreateCancellationRequestDto } from './dto/create-cancellation-request.dto';
-import { UpdateCancellationRequestDto } from './dto/update-cancellation-request.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { ProcessCancellationRequestDto } from './dto/process-cancellation-request.dto';
@@ -59,7 +58,7 @@ export class CancellationRequestsService {
         take: limit,
         orderBy,
       }),
-      this.prisma.company.count({ where }),
+      this.prisma.shiftCancellationRequest.count({ where }),
     ]);
 
     const response = {
@@ -190,7 +189,6 @@ export class CancellationRequestsService {
         originalShift: shift,
       });
 
-      // TODO: ADD SEND EMAIL TO ORIGINAL PHARMACIST
       if (shift?.pharmacist?.user?.email) {
         this.emailService.emailPharmacistCancelRequestApproved(
           shift?.pharmacist?.user?.email,
@@ -228,7 +226,7 @@ export class CancellationRequestsService {
             },
           },
         });
-        // TODO: ADD SEND EMAIL TO NEW PHARMACIST
+
         this.eventEmitter.emit(AppEvents.SHIFT_TAKEN, {
           shift: updatedShift,
         });

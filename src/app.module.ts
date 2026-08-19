@@ -18,6 +18,7 @@ import { StorageModule } from './storage/storage.module';
 import { CancellationRequestsModule } from './cancellation-requests/cancellation-requests.module';
 import { ShiftWorkLogsModule } from './shift-work-logs/shift-work-logs.module';
 import { ReportsModule } from './reports/reports.module';
+import { PharmacistRequestsModule } from './pharmacist-requests/pharmacist-requests.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { ReportsModule } from './reports/reports.module';
     CancellationRequestsModule,
     ShiftWorkLogsModule,
     ReportsModule,
+    PharmacistRequestsModule,
   ],
   controllers: [AppController],
   providers: [AppService, EmailService],

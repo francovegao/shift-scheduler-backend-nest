@@ -27,6 +27,10 @@ model User {
   location          Location?          @relation(fields: [locationId], references: [id])
   allowedCompanies  Company[]          @relation("ManagerAllowedCompanies")
 
+  pharmacistRequestsSubmitted PharmacistRequest[] @relation("PharmacistRequestsSubmitted")
+  pharmacistRequestsReviewed  PharmacistRequest[] @relation("PharmacistRequestsReviewed")
+  pharmacistRequest           PharmacistRequest?  @relation("PharmacistRequestUser")
+
   @@index([companyId])
   @@index([locationId])
 }
@@ -244,6 +248,44 @@ model ShiftWorkLog {
   @@index([pharmacistId])
 }
 
+model PharmacistRequest {
+  id              String        @id @default(uuid())
+
+  firstName       String
+  lastName        String
+  email           String
+  phone           String?
+
+  licenseNumber   String?
+  address         String?
+  city            String?
+  province        String?
+  postalCode      String?
+  bio             String?
+  experienceYears Int?
+  eTransferEmail  String?
+
+  submittedById   String
+
+  status          RequestStatus @default(pending)
+  reviewedById    String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+
+  createdUserId          String?       @unique
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  submittedBy     User          @relation("PharmacistRequestsSubmitted", fields: [submittedById], references: [id])
+  reviewedBy      User?         @relation("PharmacistRequestsReviewed", fields: [reviewedById], references: [id])
+  user            User?         @relation("PharmacistRequestUser", fields: [createdUserId], references: [id])
+
+  @@index([submittedById])
+  @@index([status])
+  @@index([email])
+}
+
 enum Role {
   admin
   pharmacy_manager
@@ -264,6 +306,7 @@ enum NotificationType {
   payment
   reminder
   cancellationRequest
+  pharmacistRequest
 }
 
 enum FileType {

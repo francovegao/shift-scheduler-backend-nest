@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -408,6 +411,74 @@ export class NotificationsListener {
         },
       });
     }
+  }
+
+  @OnEvent(AppEvents.PHARMACIST_REQUEST_CREATED)
+  async handlePharmacistRequestCreatedEvent(payload: any) {
+    const { pharmacistRequest } = payload;
+    this.logger.log(`Pharmacist request created: ${pharmacistRequest.id}`);
+
+    // Notify Pharmacy Manager
+    await this.prisma.notification.create({
+      data: {
+        userId: pharmacistRequest.submittedById,
+        title: 'Your request to add a Pharmacist was sent',
+        message: `You requested to add pharmacist "${pharmacistRequest.firstName} ${pharmacistRequest.lastName}". Email: ${pharmacistRequest.email}`,
+        type: 'pharmacistRequest',
+        actionUrl: ``,
+      },
+    });
+
+    // Notify admins
+    const admins = await this.prisma.user.findMany({
+      where: { role: 'admin' },
+    });
+
+    if (!admins.length) return;
+
+    await this.prisma.notification.createMany({
+      data: admins.map((admin) => ({
+        userId: admin.id,
+        title: 'New request to add a Pharmacist',
+        message: `A Pharmacy Manager has requested to add pharmacist: ${pharmacistRequest.firstName} ${pharmacistRequest.lastName}, email: ${pharmacistRequest.email}`,
+        type: 'pharmacistRequest',
+        actionUrl: `${pharmacistRequest.id}`,
+      })),
+    });
+  }
+
+  @OnEvent(AppEvents.PHARMACIST_REQUEST_APPROVED)
+  async handlePharmacistRequestApproved(payload: any) {
+    const { pharmacistRequest } = payload;
+    this.logger.log(`Pharmacist request approved: ${pharmacistRequest.id}`);
+
+    // Notify Pharmacy Manager
+    await this.prisma.notification.create({
+      data: {
+        userId: pharmacistRequest.submittedById,
+        title: 'Request to add a pharmacist approved',
+        message: `You request to add pharmacist "${pharmacistRequest.firstName} ${pharmacistRequest.lastName}" was approved. Email: ${pharmacistRequest.email}. Pharmacist added to the system.`,
+        type: 'pharmacistRequest',
+        actionUrl: `${pharmacistRequest.createdUserId}`,
+      },
+    });
+  }
+
+  @OnEvent(AppEvents.PHARMACIST_REQUEST_REJECTED)
+  async handlePharmacistRequestRejected(payload: any) {
+    const { pharmacistRequest } = payload;
+    this.logger.log(`Pharmacist request rejected: ${pharmacistRequest.id}`);
+
+    // Notify Pharmacy Manager
+    await this.prisma.notification.create({
+      data: {
+        userId: pharmacistRequest.submittedById,
+        title: 'Request to add a pharmacist rejected',
+        message: `You request to add pharmacist "${pharmacistRequest.firstName} ${pharmacistRequest.lastName}" was rejected. Rejection reason: ${pharmacistRequest.rejectionReason}.`,
+        type: 'pharmacistRequest',
+        actionUrl: ``,
+      },
+    });
   }
 }
 

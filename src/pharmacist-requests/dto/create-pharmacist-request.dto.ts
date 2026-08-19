@@ -1,32 +1,41 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { ApiProperty } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import {
-  IsNotEmpty,
-  IsString,
-  MinLength,
   IsEmail,
-  IsBoolean,
-  IsOptional,
+  IsNotEmpty,
   IsNumber,
+  IsOptional,
+  IsString,
   ValidateIf,
-  IsArray,
-  ValidateNested,
 } from 'class-validator';
 
-class CompanyPermissionDto {
-  @IsString()
-  companyId: string;
-
-  @IsBoolean()
-  canViewPayRate: boolean;
-}
-
-export class CreatePharmacistProfileDto {
+export class CreatePharmacistRequestDto {
   @IsString()
   @IsNotEmpty()
-  @MinLength(3)
+  @Transform(({ value }) => value.trim())
   @ApiProperty()
-  userId: string;
+  firstName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @Transform(({ value }) => value.trim())
+  @ApiProperty()
+  lastName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @IsEmail()
+  @Transform(({ value }) => value.toLowerCase())
+  @ApiProperty()
+  email: string;
+
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  phone?: string;
 
   @IsString()
   @IsOptional()
@@ -54,10 +63,15 @@ export class CreatePharmacistProfileDto {
   postalCode?: string;
 
   @IsOptional()
-  @ValidateIf((o) => o.email !== '') // Apply IsEmail only if email is not an empty string
+  @ValidateIf(
+    (o) =>
+      o.eTransferEmail !== '' &&
+      o.eTransferEmail !== undefined &&
+      o.eTransferEmail !== null,
+  )
   @IsEmail()
   @ApiProperty({ required: false })
-  email?: string;
+  eTransferEmail?: string;
 
   @IsString()
   @IsOptional()
@@ -68,23 +82,4 @@ export class CreatePharmacistProfileDto {
   @IsOptional()
   @ApiProperty({ required: false })
   experienceYears?: number;
-
-  @IsBoolean()
-  @ApiProperty({ default: false })
-  approved: boolean;
-
-  @IsBoolean()
-  @ApiProperty({ default: false })
-  canViewAllCompanies: boolean;
-
-  @IsBoolean()
-  @ApiProperty({ default: true })
-  canViewPayRates: boolean;
-
-  @IsArray()
-  @IsOptional()
-  @ValidateNested({ each: true })
-  @Type(() => CompanyPermissionDto)
-  @ApiProperty({ type: [CompanyPermissionDto], required: false })
-  companyPermissions?: CompanyPermissionDto[];
 }
