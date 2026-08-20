@@ -78,7 +78,8 @@ export class EmailService {
                               <a href="https://shifthappens.vercel.app/">Click here to log in</a></p>
                               <p>Thank you for supporting our pharmacy network.</p>
                               <p>Cheers,<br>
-                              CurisRx & Pharm Drugstore</p>`;
+                              CurisRx Pharmacy<br>
+                              Pharm Drugstore</p>`;
 
     try {
       const { data, error } = await this.resend.emails.send({
@@ -119,7 +120,7 @@ export class EmailService {
   //Send this email to a pharmacist that has manually taken a shift
   async emailPharmacistShiftTaken(to: string, shift: ShiftWithCompanyAddress) {
     const templateName = 'shift_taken';
-    const subject = `Shift Confirmed at ${shift.company.name}`;
+    const subject = `New Shift: Shift Confirmed at ${shift.company.name}`;
 
     const shiftDate = formatDate(shift.startTime, shift.company.timezone);
     const startTime = formatTime(shift.startTime, shift.company.timezone);
@@ -134,8 +135,7 @@ export class EmailService {
                               Notes: ${shift.title}<br>
                               ${shift.description}</p>
                               <a href="${generateGCalLink(shift)}">
-                              Click here to add shift
-                              to Google Calendar</a>
+                              Click here to add shift to Google Calendar</a>
                               <p>We’ll reach out <strong>24 hours before your shift</strong> with your pharmacy access codes and login details.<br>
                               Once you get to the store, you’ll find a <strong>location-specific Pharmacist Relief Binder</strong> with<br>
                               guidance on workflows, procedures, and key contacts to help your shift run smoothly.</p>
@@ -144,7 +144,8 @@ export class EmailService {
                               <a href="https://shifthappens.vercel.app/">Click here to log in</a></p>
                               <p>Thank you for supporting our pharmacy network.</p>
                               <p>Cheers,<br>
-                              CurisRx & Pharm Drugstore</p>`;
+                              CurisRx Pharmacy<br>
+                              Pharm Drugstore</p>`;
 
     try {
       const { data, error } = await this.resend.emails.send({
@@ -205,8 +206,9 @@ export class EmailService {
                               ${shift.description}</p>
                               <p>To view all the details go to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Thank you,<br>
-                              CurisRx & Pharm Drugstore</p>`;
+                              <p>Cheers,<br>
+                              CurisRx Pharmacy<br>
+                              Pharm Drugstore</p>`;
 
     try {
       const batchEmails = managersEmails.map((email) => ({
@@ -301,7 +303,8 @@ export class EmailService {
                 <a href="https://shifthappens.vercel.app/">Click here to log in</a></p>
                 <p>Thank you for supporting our pharmacy network.</p>
                 <p>Cheers,<br>
-                CurisRx & Pharm Drugstore</p>`;
+                CurisRx Pharmacy<br>
+                Pharm Drugstore</p>`;
     };
 
     try {
@@ -358,8 +361,9 @@ export class EmailService {
                               ${shift.description}</p>
                               <p>If you would like to take this shift go to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Thank you,<br>
-                              CurisRx & Pharm Drugstore</p>`;
+                              <p>Cheers,<br>
+                              CurisRx Pharmacy<br>
+                              Pharm Drugstore</p>`;
 
     try {
       const { data, error } = await this.resend.emails.send({
@@ -404,12 +408,13 @@ export class EmailService {
     const subject = `Open shifts - Now Available`;
 
     const htmlContent = `<p>Hi ${firstName},</p>
-                              <p>Open shifts are now available.</p>
+                              <p>Open shifts are now available!</p>
                               <p>Visit your dashboard to view details and claim shifts!<br>
                               <a href="https://shifthappens.vercel.app/">Click here</a>  to view available shifts and add to your calendar</p>
                               <p>Any questions about accepting shifts, please reach out!</p>
                               <p>Cheers,<br>
-                              CurisRx & Pharm Drugstore</p>`;
+                              CurisRx Pharmacy<br>
+                              Pharm Drugstore</p>`;
 
     try {
       const { data, error } = await this.resend.emails.send({
@@ -472,8 +477,9 @@ export class EmailService {
                               to Google Calendar</a>
                               <p>To view all the details go to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Thank you,<br>
-                              CurisRx & Pharm Drugstore</p>`;
+                              <p>Cheers,<br>
+                              CurisRx Pharmacy<br>
+                              Pharm Drugstore</p>`;
 
     try {
       const { data, error } = await this.resend.emails.send({
@@ -538,8 +544,9 @@ export class EmailService {
                               <p>To review this request, please log in to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a> and
                               process the request.</p>
-                              <p>Thank you,<br>
-                              CurisRx & Pharm Drugstore</p>`;
+                              <p>Cheers,<br>
+                              CurisRx Pharmacy<br>
+                              Pharm Drugstore</p>`;
 
     try {
       const batchEmails = adminAndContactPersonEmails.map((email) => ({
@@ -605,8 +612,9 @@ export class EmailService {
                               ${shift.description}</p>
                               <p>To view all the details go to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Thank you,<br>
-                              CurisRx & Pharm Drugstore</p>`;
+                              <p>Cheers,<br>
+                              CurisRx Pharmacy<br>
+                              Pharm Drugstore</p>`;
 
     try {
       const { data, error } = await this.resend.emails.send({
@@ -699,7 +707,8 @@ export class EmailService {
               <a href="https://shifthappens.vercel.app/">Click here to log in</a></p>
               <p>Thank you for supporting our pharmacy network.</p>
               <p>Cheers,<br>
-              CurisRx & Pharm Drugstore</p>`;
+              CurisRx Pharmacy<br>
+              Pharm Drugstore</p>`;
     };
 
     try {
@@ -797,8 +806,9 @@ export class EmailService {
               ${shiftListHtml}
               <p>To view your updated schedule, visit 
               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-              <p>Thank you,<br>
-              CurisRx & Pharm Drugstore</p>`;
+              <p>Cheers,<br>
+              CurisRx Pharmacy<br>
+              Pharm Drugstore</p>`;
     };
 
     try {
@@ -894,8 +904,9 @@ export class EmailService {
               ${shiftListHtml}
               <p>To view your updated schedule, visit 
               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-              <p>Thank you,<br>
-              CurisRx & Pharm Drugstore</p>`;
+              <p>Cheers,<br>
+              CurisRx Pharmacy<br>
+              Pharm Drugstore</p>`;
     };
 
     try {
@@ -969,8 +980,9 @@ export class EmailService {
                               ${shift.description}</p>
                               <p>To view all the details go to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Thank you,<br>
-                              CurisRx & Pharm Drugstore</p>`;
+                              <p>Cheers,<br>
+                              CurisRx Pharmacy<br>
+                              Pharm Drugstore</p>`;
 
     try {
       const { data, error } = await this.resend.emails.send({
@@ -1030,8 +1042,9 @@ export class EmailService {
                               ${shift.description}</p>
                               <p>To view all the details go to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Thank you,<br>
-                              CurisRx & Pharm Drugstore</p>`;
+                              <p>Cheers,<br>
+                              CurisRx Pharmacy<br>
+                              Pharm Drugstore</p>`;
 
     try {
       const { data, error } = await this.resend.emails.send({
@@ -1072,7 +1085,7 @@ export class EmailService {
   //Send this email when a new user is added to the system
   async emailNewUser(to: string, password: string, firstName?: string) {
     const templateName = 'new_account_created';
-    const subject = `Your Account has been Created at Shift Happens`;
+    const subject = `Your Account has been Created for Curis Pharmacy Relief Portal!`;
 
     const htmlContent = `<p>Hi ${firstName},</p>
                               <p>Welcome to Shift Happens! Your account has been successfully created. This portal will be <br>
@@ -1091,8 +1104,9 @@ export class EmailService {
                               </ul>
                               <p>If you have any questions, our team is here to help.</p>
                               <p>Welcome aboard, we're excited to have you!<br>
-                              Thank you,<br>
-                              CurisRx & Pharm Drugstore</p>`;
+                              <p>Cheers,<br>
+                              CurisRx Pharmacy<br>
+                              Pharm Drugstore</p>`;
 
     try {
       const { data, error } = await this.resend.emails.send({
@@ -1148,8 +1162,9 @@ export class EmailService {
                               <p>To review this request, please log in to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a> and
                               process the request.</p>
-                              <p>Thank you,<br>
-                              CurisRx & Pharm Drugstore</p>`;
+                              <p>Cheers,<br>
+                              CurisRx Pharmacy<br>
+                              Pharm Drugstore</p>`;
 
     try {
       const batchEmails = adminEmails.map((email) => ({
@@ -1213,8 +1228,9 @@ export class EmailService {
 
                               <p>To view all the details go to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Thank you,<br>
-                              CurisRx & Pharm Drugstore</p>`;
+                              <p>Cheers,<br>
+                              CurisRx Pharmacy<br>
+                              Pharm Drugstore</p>`;
 
     try {
       const { data, error } = await this.resend.emails.send({
@@ -1268,8 +1284,9 @@ export class EmailService {
 
                               <p>To view all the details go to
                               <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Thank you,<br>
-                              CurisRx & Pharm Drugstore</p>`;
+                              <p>Cheers,<br>
+                              CurisRx Pharmacy<br>
+                              Pharm Drugstore</p>`;
 
     try {
       const { data, error } = await this.resend.emails.send({
