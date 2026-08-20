@@ -9,4 +9,5 @@ export const AppEvents = {
   PHARMACIST_REQUEST_CREATED: 'pharmacist.pharmacist_request_created',
   PHARMACIST_REQUEST_APPROVED: 'pharmacist.pharmacist_request_approved',
   PHARMACIST_REQUEST_REJECTED: 'pharmacist.pharmacist_request_rejected',
+  MULTIPLE_SHIFTS_TAKEN: 'shift.multiple_taken',
 };

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
@@ -108,6 +110,88 @@ export class NotificationsListener {
         message: `A pharmacist has taken the shift "${shift.title}" Shift Date: ${formattedDate} Time: ${formattedStartTime}-${formattedEndTime} ${tzAbbr} Pharmacy: ${shift?.company?.name}.`,
         type: 'shift',
         actionUrl: `${shift.id}`,
+      })),
+    });
+  }
+
+  @OnEvent(AppEvents.MULTIPLE_SHIFTS_TAKEN)
+  async handleShiftSeriesTakenEvent(payload: any) {
+    const { shift, shiftsDates } = payload;
+    this.logger.log(`Shift Series taken at: ${shift.companyId}`);
+
+    const formattedDates = shiftsDates
+      .map((dateStr) =>
+        new Date(dateStr).toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        }),
+      )
+      .join('; ');
+
+    const { formattedStartTime, formattedEndTime, tzAbbr } =
+      await getFormattedDateAndTime(this.prisma, shift);
+
+    // Notify Pharmacist
+    const user = await this.prisma.pharmacistProfile.findUnique({
+      where: { id: shift.pharmacistId },
+      select: { userId: true },
+    });
+
+    if (user) {
+      await this.prisma.notification.create({
+        data: {
+          userId: user.userId,
+          title: 'Multiple Shifts Scheduled',
+          message: `You have multiple new scheduled shifts: "${shift.title}" Dates: ${formattedDates} Time: ${formattedStartTime}-${formattedEndTime} ${tzAbbr} Pharmacy: ${shift?.company?.name}.`,
+          type: 'shift',
+          actionUrl: ``,
+        },
+      });
+    }
+
+    // Notify managers of the location
+    const locationManagers = await this.prisma.user.findMany({
+      where: {
+        locationId: shift.locationId,
+        role: 'location_manager',
+      },
+      select: { id: true },
+    });
+
+    if (locationManagers.length) {
+      await this.prisma.notification.createMany({
+        data: locationManagers.map((m) => ({
+          userId: m.id,
+          title: 'Multiple Shifts Taken',
+          message: `A pharmacist has taken multiple shifts "${shift.title}" Dates: ${formattedDates} Time: ${formattedStartTime}-${formattedEndTime} ${tzAbbr}.`,
+          type: 'shift',
+          actionUrl: ``,
+        })),
+      });
+    }
+
+    // Notify managers of the company
+    const managers = await this.prisma.user.findMany({
+      where: {
+        role: 'pharmacy_manager',
+        OR: [
+          { companyId: shift.companyId },
+          { allowedCompanies: { some: { id: shift.companyId } } },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (!managers.length) return;
+
+    await this.prisma.notification.createMany({
+      data: managers.map((m) => ({
+        userId: m.id,
+        title: 'Multiple Shifts Taken',
+        message: `A pharmacist has taken multiple shifts "${shift.title}" Dates: ${formattedDates} Time: ${formattedStartTime}-${formattedEndTime} ${tzAbbr} Pharmacy: ${shift?.company?.name}.`,
+        type: 'shift',
+        actionUrl: ``,
       })),
     });
   }

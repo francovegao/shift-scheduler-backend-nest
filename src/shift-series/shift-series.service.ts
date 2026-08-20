@@ -1,4 +1,9 @@
-import { Injectable } from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-floating-promises */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateShiftSeryDto } from './dto/create-shift-sery.dto';
 import { UpdateShiftSeryDto } from './dto/update-shift-sery.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -7,6 +12,8 @@ import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { DeleteShiftSeriesDto } from './dto/delete-shift-sery.dto';
 import { ShiftsService } from 'src/shifts/shifts.service';
 import { EmailService } from 'src/email/email.service';
+import { AppEvents } from 'src/events/app-events';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class ShiftSeriesService {
@@ -14,88 +21,151 @@ export class ShiftSeriesService {
     private prisma: PrismaService,
     private shiftsService: ShiftsService,
     private emailService: EmailService,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async create(createShiftSeryDto: CreateShiftSeryDto) {
     const { status, pharmacistId, ...shiftSeriesData } = createShiftSeryDto;
 
-    return await this.prisma.$transaction(async (tx) => {
-      const series = await tx.shiftSeries.create({
-        data: shiftSeriesData,
-      });
-      const shifts: Prisma.ShiftCreateManyInput[] = [];
+    const { shiftSeries, createdShifts, accumulatedDates } =
+      await this.prisma.$transaction(async (tx) => {
+        const shiftSeries = await tx.shiftSeries.create({
+          data: shiftSeriesData,
+        });
+        const shifts: Prisma.ShiftCreateManyInput[] = [];
+        const accumulatedDates: string[] = [];
 
-      //find company timezone
-      const company = await this.prisma.company.findUnique({
-        where: { id: createShiftSeryDto.companyId },
-      });
-      const timezone = company?.timezone || 'America/Edmonton';
+        //find company timezone
+        const company = await this.prisma.company.findUnique({
+          where: { id: createShiftSeryDto.companyId },
+        });
+        const timezone = company?.timezone || 'America/Edmonton';
 
-      let current = parseLocalDate(createShiftSeryDto.startDate);
-      const endDate = parseLocalDate(createShiftSeryDto.endDate);
+        const current = parseLocalDate(createShiftSeryDto.startDate);
+        const endDate = parseLocalDate(createShiftSeryDto.endDate);
 
-      current.setHours(0, 0, 0, 0);
-      endDate.setHours(0, 0, 0, 0);
+        current.setHours(0, 0, 0, 0);
+        endDate.setHours(0, 0, 0, 0);
 
-      while (current <= endDate) {
-        const day = current.getDay(); //0-6
+        while (current <= endDate) {
+          const day = current.getDay(); //0-6
 
-        const isDaily = createShiftSeryDto.repeatType === 'DAILY';
-        const isWeekly = createShiftSeryDto.repeatType === 'WEEKLY';
+          const isDaily = createShiftSeryDto.repeatType === 'DAILY';
+          const isWeekly = createShiftSeryDto.repeatType === 'WEEKLY';
 
-        const isWeekend = day === 0 || day === 6;
-        const shouldIncludeDay =
-          isWeekly && createShiftSeryDto.daysOfWeek.includes(day);
-        const isExcludedWeekend =
-          createShiftSeryDto.excludeWeekends && isWeekend;
+          const isWeekend = day === 0 || day === 6;
+          const shouldIncludeDay =
+            isWeekly && createShiftSeryDto.daysOfWeek.includes(day);
+          const isExcludedWeekend =
+            createShiftSeryDto.excludeWeekends && isWeekend;
 
-        if ((isDaily || shouldIncludeDay) && !isExcludedWeekend) {
-          const dateOnly = current.toISOString().slice(0, 10);
+          if ((isDaily || shouldIncludeDay) && !isExcludedWeekend) {
+            const dateOnly = current.toISOString().slice(0, 10);
 
-          //Handle overnight shifts
-          const shiftStart = buildUtcFromLocal(
-            dateOnly,
-            createShiftSeryDto.startMinutes,
-            timezone,
-          );
-          let shiftEndBase = current;
+            //Handle overnight shifts
+            const shiftStart = buildUtcFromLocal(
+              dateOnly,
+              createShiftSeryDto.startMinutes,
+              timezone,
+            );
+            let shiftEndBase = current;
 
-          if (createShiftSeryDto.endMinutes < createShiftSeryDto.startMinutes) {
-            shiftEndBase = new Date(current);
-            shiftEndBase.setDate(shiftEndBase.getDate() + 1);
+            if (
+              createShiftSeryDto.endMinutes < createShiftSeryDto.startMinutes
+            ) {
+              shiftEndBase = new Date(current);
+              shiftEndBase.setDate(shiftEndBase.getDate() + 1);
+            }
+
+            const endDateString = shiftEndBase.toISOString().slice(0, 10);
+            const shiftEnd = buildUtcFromLocal(
+              endDateString,
+              createShiftSeryDto.endMinutes,
+              timezone,
+            );
+
+            shifts.push({
+              companyId: createShiftSeryDto.companyId,
+              locationId: createShiftSeryDto.locationId ?? null,
+              title: createShiftSeryDto.title,
+              description: createShiftSeryDto.description ?? null,
+              payRate: createShiftSeryDto.payRate,
+              startTime: shiftStart,
+              endTime: shiftEnd,
+              published: createShiftSeryDto.published,
+              seriesId: shiftSeries.id,
+              status: createShiftSeryDto.status ?? 'open',
+              pharmacistId: createShiftSeryDto.pharmacistId ?? null,
+            });
+
+            accumulatedDates.push(dateOnly);
           }
 
-          const endDateString = shiftEndBase.toISOString().slice(0, 10);
-          const shiftEnd = buildUtcFromLocal(
-            endDateString,
-            createShiftSeryDto.endMinutes,
-            timezone,
-          );
+          current.setDate(current.getDate() + 1);
+        }
 
-          shifts.push({
-            companyId: createShiftSeryDto.companyId,
-            locationId: createShiftSeryDto.locationId ?? null,
-            title: createShiftSeryDto.title,
-            description: createShiftSeryDto.description ?? null,
-            payRate: createShiftSeryDto.payRate,
-            startTime: shiftStart,
-            endTime: shiftEnd,
-            published: createShiftSeryDto.published,
-            seriesId: series.id,
-            status: createShiftSeryDto.status ?? 'open',
-            pharmacistId: createShiftSeryDto.pharmacistId ?? null,
+        let createdShifts: any[] = [];
+
+        if (shifts.length > 0) {
+          createdShifts = await tx.shift.createManyAndReturn({
+            data: shifts,
+            include: {
+              company: {
+                select: {
+                  name: true,
+                  timezone: true,
+                  address: true,
+                  city: true,
+                  province: true,
+                },
+              },
+              pharmacist: {
+                select: {
+                  user: {
+                    select: {
+                      email: true,
+                      firstName: true,
+                    },
+                  },
+                },
+              },
+            },
           });
         }
 
-        current.setDate(current.getDate() + 1);
-      }
+        return { shiftSeries, createdShifts, accumulatedDates };
+      });
 
-      if (shifts.length > 0) {
-        await tx.shift.createMany({ data: shifts });
-      }
+    const sampleShift = createdShifts[0];
 
-      return series;
-    });
+    //Notify if shift was assigned to a pharmacist
+    if (sampleShift.status === 'taken' && sampleShift.pharmacistId) {
+      //emit event for notifications
+      this.eventEmitter.emit(AppEvents.MULTIPLE_SHIFTS_TAKEN, {
+        shift: sampleShift,
+        shiftsDates: accumulatedDates,
+      });
+
+      const pharmacistProfile = await this.prisma.pharmacistProfile.findUnique({
+        where: { id: sampleShift.pharmacistId },
+        select: {
+          user: {
+            select: { email: true },
+          },
+        },
+      });
+
+      if (pharmacistProfile?.user?.email) {
+        // Send a SINGLE email containing shifts info
+        this.emailService.emailPharmacistMultipleShiftsAssigned(
+          pharmacistProfile.user.email,
+          sampleShift,
+          accumulatedDates,
+        );
+      }
+    }
+
+    return shiftSeries;
   }
 
   findAll() {
@@ -123,32 +193,13 @@ export class ShiftSeriesService {
       throw new Error('Reference Shift not found');
     }
 
-    //Check if start and end time are being updated
     const timeZone = referenceShift.company.timezone;
-    const zonedStartTime = toZonedTime(referenceShift.startTime, timeZone);
-    const zonedEndTime = toZonedTime(referenceShift.endTime, timeZone);
 
-    const referenceStartMinutes =
-      zonedStartTime.getHours() * 60 + zonedStartTime.getMinutes();
-    const referenceEndMinutes =
-      zonedEndTime.getHours() * 60 + zonedEndTime.getMinutes();
-
-    //If no change in minutes remove startTime and endTime from updateShiftDto
-    if (updateShiftSeryDto.shiftData.startTime !== undefined) {
-      const [hours, minutes] =
-        updateShiftSeryDto.shiftData.startTime.split(':');
-      const incomingMinutes = parseInt(hours, 10) * 60 + parseInt(minutes, 10);
-      if (referenceStartMinutes === incomingMinutes) {
-        delete updateShiftSeryDto.shiftData.startTime;
-      }
+    if (updateShiftSeryDto.shiftData.startTime === undefined) {
+      throw new BadRequestException('Start Time is required');
     }
-    if (updateShiftSeryDto.shiftData.endTime !== undefined) {
-      const [hours, minutes] = updateShiftSeryDto.shiftData.endTime.split(':');
-      const incomingMinutes = parseInt(hours, 10) * 60 + parseInt(minutes, 10);
-
-      if (referenceEndMinutes === incomingMinutes) {
-        delete updateShiftSeryDto.shiftData.endTime;
-      }
+    if (updateShiftSeryDto.shiftData.endTime === undefined) {
+      throw new BadRequestException('End Time is required');
     }
 
     const whereFilter: Prisma.ShiftWhereInput =
@@ -169,45 +220,41 @@ export class ShiftSeriesService {
     });
 
     const updatedShifts: any[] = [];
+    const newlyAssignedShifts: any[] = [];
+    const regularUpdatedShifts: any[] = [];
 
     for (const shift of shifts) {
       let newStartTime = shift.startTime;
       let newEndTime = shift.endTime;
 
-      if (updateShiftSeryDto.shiftData.startTime !== undefined) {
-        const zonedStart = toZonedTime(shift.startTime, timeZone);
+      const zonedStart = toZonedTime(shift.startTime, timeZone);
+      const zonedEnd = toZonedTime(shift.endTime, timeZone);
 
-        const [hours, minutes] =
-          updateShiftSeryDto.shiftData.startTime.split(':');
+      const [startHours, startMinutes] =
+        updateShiftSeryDto.shiftData.startTime.split(':');
+      const [endHours, endMinutes] =
+        updateShiftSeryDto.shiftData.endTime.split(':');
 
-        zonedStart.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-
-        newStartTime = zonedStart;
-      }
-
-      if (updateShiftSeryDto.shiftData.endTime !== undefined) {
-        const zonedEnd = toZonedTime(shift.endTime, timeZone);
-
-        const [hours, minutes] =
-          updateShiftSeryDto.shiftData.endTime.split(':');
-
-        zonedEnd.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-
-        newEndTime = zonedEnd;
-      }
+      zonedStart.setHours(
+        parseInt(startHours, 10),
+        parseInt(startMinutes, 10),
+        0,
+        0,
+      );
+      zonedEnd.setHours(parseInt(endHours, 10), parseInt(endMinutes, 10), 0, 0);
 
       //If Overnight shift
       if (
-        updateShiftSeryDto.shiftData.endTime !== undefined &&
-        updateShiftSeryDto.shiftData.startTime !== undefined
+        parseInt(endHours, 10) * 60 + parseInt(endMinutes, 10) <
+        parseInt(startHours, 10) * 60 + parseInt(startMinutes, 10)
       ) {
-        if (
-          updateShiftSeryDto.shiftData.endTime <
-          updateShiftSeryDto.shiftData.startTime
-        ) {
-          newEndTime.setDate(newEndTime.getDate() + 1);
-        }
+        zonedEnd.setDate(zonedEnd.getDate() + 1);
       }
+
+      newStartTime = fromZonedTime(zonedStart, timeZone);
+      newEndTime = fromZonedTime(zonedEnd, timeZone);
+
+      const originalPharmacistId = shift.pharmacistId;
 
       const updated = await this.shiftsService.update(
         shift.id,
@@ -220,22 +267,40 @@ export class ShiftSeriesService {
         true,
       );
 
+      if (updated.status === 'taken' && updated.pharmacistId) {
+        if (originalPharmacistId !== updated.pharmacistId) {
+          newlyAssignedShifts.push(updated);
+        } else {
+          regularUpdatedShifts.push(updated);
+        }
+      }
+
       updatedShifts.push(updated);
     }
 
-    const updatedAssignedShifts = updatedShifts.filter(
-      (s) => s.status === 'taken' && s.pharmacistId,
-    );
-
-    if (updatedAssignedShifts.length > 0) {
-      const pharmacistsEmailsToNotify = [
-        ...new Set(updatedAssignedShifts.map((s) => s.pharmacist?.user.email)),
+    //Send emails for newly assigned shifts
+    if (newlyAssignedShifts.length > 0) {
+      const assignedEmails = [
+        ...new Set(newlyAssignedShifts.map((s) => s.pharmacist?.user.email)),
       ].filter(Boolean);
 
-      if (pharmacistsEmailsToNotify.length > 0) {
+      if (assignedEmails.length > 0) {
+        this.emailService.emailPharmacistsShiftSeriesAssigned(
+          assignedEmails,
+          newlyAssignedShifts,
+        );
+      }
+    }
+
+    if (regularUpdatedShifts.length > 0) {
+      const updateEmails = [
+        ...new Set(regularUpdatedShifts.map((s) => s.pharmacist?.user.email)),
+      ].filter(Boolean);
+
+      if (updateEmails.length > 0) {
         this.emailService.emailPharmacistsShiftSeriesUpdated(
-          pharmacistsEmailsToNotify,
-          updatedAssignedShifts,
+          updateEmails,
+          regularUpdatedShifts,
         );
       }
     }

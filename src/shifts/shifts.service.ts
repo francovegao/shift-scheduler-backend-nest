@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-floating-promises */
 /* eslint-disable @typescript-eslint/restrict-template-expressions */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
@@ -49,7 +50,48 @@ export class ShiftsService {
       endTime: endUtc.toISOString(),
     };
 
-    return this.prisma.shift.create({ data: createShiftDto });
+    const createdShift = await this.prisma.shift.create({
+      data: createShiftDto,
+      include: {
+        company: {
+          select: {
+            name: true,
+            timezone: true,
+            address: true,
+            city: true,
+            province: true,
+          },
+        },
+        pharmacist: {
+          select: {
+            user: {
+              select: {
+                email: true,
+                firstName: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (
+      createdShift.status === 'taken' &&
+      createdShift.pharmacist?.user?.email
+    ) {
+      //emit event for notifications
+      this.eventEmitter.emit(AppEvents.SHIFT_TAKEN, {
+        shift: createdShift,
+      });
+
+      //Send email to assigned pharmacist
+      this.emailService.emailPharmacistShiftAssigned(
+        createdShift.pharmacist.user.email,
+        createdShift,
+      );
+    }
+
+    return createdShift;
   }
 
   async createBulk(createBulkShiftDto: CreateBulkShiftsDto) {
@@ -112,9 +154,59 @@ export class ShiftsService {
       });
     }
 
-    await this.prisma.shift.createMany({
+    const createdShifts = await this.prisma.shift.createManyAndReturn({
       data: shiftsData,
+      include: {
+        company: {
+          select: {
+            name: true,
+            timezone: true,
+            address: true,
+            city: true,
+            province: true,
+          },
+        },
+        pharmacist: {
+          select: {
+            user: {
+              select: {
+                email: true,
+                firstName: true,
+              },
+            },
+          },
+        },
+      },
     });
+
+    const sampleShift = createdShifts[0];
+
+    //Notify if shift was assigned to a pharmacist
+    if (sampleShift.status === 'taken' && sampleShift.pharmacistId) {
+      //emit event for notifications
+      this.eventEmitter.emit(AppEvents.MULTIPLE_SHIFTS_TAKEN, {
+        shift: sampleShift,
+        shiftsDates: createBulkShiftDto.dates,
+      });
+
+      const pharmacistProfile = await this.prisma.pharmacistProfile.findUnique({
+        where: { id: sampleShift.pharmacistId },
+        select: {
+          user: {
+            select: { email: true },
+          },
+        },
+      });
+
+      if (pharmacistProfile?.user?.email) {
+        // Send a SINGLE email containing shifts info
+        this.emailService.emailPharmacistMultipleShiftsAssigned(
+          pharmacistProfile.user.email,
+          sampleShift,
+          createBulkShiftDto.dates,
+        );
+      }
+    }
 
     return { created: shiftsData.length };
   }
@@ -1064,14 +1156,22 @@ export class ShiftsService {
 
     const timezone = company?.timezone ?? 'America/Edmonton';
 
-    const startUtc = fromZonedTime(
-      updateShiftDto.startTime ?? existingShift.startTime,
-      timezone,
-    );
-    const endUtc = fromZonedTime(
-      updateShiftDto.endTime ?? existingShift.endTime,
-      timezone,
-    );
+    const isIsoUtcString = (val: any) =>
+      typeof val === 'string' && (val.endsWith('Z') || val.includes('+00:00'));
+
+    const startUtc = isIsoUtcString(updateShiftDto.startTime)
+      ? new Date(updateShiftDto.startTime!)
+      : fromZonedTime(
+          updateShiftDto.startTime ?? existingShift.startTime,
+          timezone,
+        );
+
+    const endUtc = isIsoUtcString(updateShiftDto.endTime)
+      ? new Date(updateShiftDto.endTime!)
+      : fromZonedTime(
+          updateShiftDto.endTime ?? existingShift.endTime,
+          timezone,
+        );
 
     //update shift
     const updatedShift = await this.prisma.shift.update({
@@ -1129,6 +1229,23 @@ export class ShiftsService {
       }
     }
 
+    //If status stayed as taken
+    if (oldStatus === newStatus && newStatus === 'taken') {
+      //Notify pharmacist if pharmacistId was changed
+      const oldPharmacistId = existingShift.pharmacistId;
+      const newPharmacistId = updatedShift.pharmacistId;
+
+      if (oldPharmacistId !== newPharmacistId) {
+        this.eventEmitter.emit(AppEvents.SHIFT_CANCELLED, {
+          shift: existingShift,
+        });
+
+        this.eventEmitter.emit(AppEvents.SHIFT_TAKEN, {
+          shift: updatedShift,
+        });
+      }
+    }
+
     if (!skipEmail) {
       //Notify pharmacist if shift times were updated
       const oldStartTime = existingShift.startTime;
@@ -1152,11 +1269,21 @@ export class ShiftsService {
       const newPharmacistId = updatedShift.pharmacistId;
 
       if (oldPharmacistId !== newPharmacistId) {
-        if (existingShift?.pharmacist?.user.email)
+        //Pharmacist removed from shift. Send email shift was cancelled
+        if (oldPharmacistId && existingShift?.pharmacist?.user?.email) {
           this.emailService.emailPharmacistShiftCancelled(
-            existingShift?.pharmacist?.user.email,
+            existingShift.pharmacist.user.email,
             existingShift,
           );
+        }
+
+        if (newPharmacistId && updatedShift?.pharmacist?.user?.email) {
+          //New pharmacist assigned to shift. Notify pharmacist
+          this.emailService.emailPharmacistShiftAssigned(
+            updatedShift.pharmacist.user.email,
+            updatedShift,
+          );
+        }
       }
     }
 

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Injectable, Logger } from '@nestjs/common';
 import { PharmacistRequest, Shift } from '../../generated/prisma/client';
 import { Resend } from 'resend';
@@ -45,6 +47,76 @@ export class EmailService {
     this.resend = new Resend(process.env.RESEND_API_KEY);
   }
 
+  //Send this email to a pharmacist when admin or manager creates or updates a single shift and it is freshly assigned to a pharmacist
+  async emailPharmacistShiftAssigned(
+    to: string,
+    shift: ShiftWithCompanyAddress,
+  ) {
+    const templateName = 'shift_assigned';
+    const subject = `Shift Assigned at ${shift.company.name}`;
+
+    const shiftDate = formatDate(shift.startTime, shift.company.timezone);
+    const startTime = formatTime(shift.startTime, shift.company.timezone);
+    const endTime = formatTime(shift.endTime, shift.company.timezone);
+
+    const htmlContent = `<p>Hi ${shift?.pharmacist?.user?.firstName},</p>
+                              <p>This email confirms that you have been assigned a shift at <strong>${shift.company.name}</strong></p>
+                              <p><strong>Shift Details</strong><br>
+                              Location: <strong>${shift.company.name}</strong><br>
+                              Date: <strong>${shiftDate}</strong><br>
+                              Time: <strong>${startTime} - ${endTime}</strong><br>
+                              Notes: ${shift.title}<br>
+                              ${shift.description}</p>
+                              <a href="${generateGCalLink(shift)}">
+                              Click here to add shift
+                              to Google Calendar</a>
+                              <p>We’ll reach out <strong>24 hours before your shift</strong> with your pharmacy access codes and login details.<br>
+                              Once you get to the store, you’ll find a <strong>location-specific Pharmacist Relief Binder</strong> with<br>
+                              guidance on workflows, procedures, and key contacts to help your shift run smoothly.</p>
+                              <p>If you have any questions or concerns, please reach out to the Pharmacy manager. You will find<br>
+                              the contact information located in the accepted shift on the portal.<br> 
+                              <a href="https://shifthappens.vercel.app/">Click here to log in</a></p>
+                              <p>Thank you for supporting our pharmacy network.</p>
+                              <p>Cheers,<br>
+                              CurisRx & Pharm Drugstore</p>`;
+
+    try {
+      const { data, error } = await this.resend.emails.send({
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
+        to: [to],
+        subject: subject,
+        html: htmlContent,
+      });
+
+      if (error) throw new Error(JSON.stringify(error));
+
+      await this.logEmail({
+        to,
+        subject,
+        status: 'sent',
+        templateName,
+        providerMessageId: data.id,
+      });
+
+      this.logger.log('Email sent successfully');
+      return data;
+    } catch (error) {
+      await this.logEmail({
+        to,
+        subject,
+        status: 'failed',
+        templateName,
+        errorMessage: getErrorMessage(error),
+      });
+      this.logger.error(
+        'Unexpected error sending email',
+        (error as Error).stack,
+      );
+      throw error;
+    }
+  }
+
+  //Send this email to a pharmacist that has manually taken a shift
   async emailPharmacistShiftTaken(to: string, shift: ShiftWithCompanyAddress) {
     const templateName = 'shift_taken';
     const subject = `Shift Confirmed at ${shift.company.name}`;
@@ -110,6 +182,7 @@ export class EmailService {
     }
   }
 
+  //Send this email to notify managers and admins that a shift was taken manually by a pharmacist
   async emailManagersShiftTaken(
     managersEmails: string[],
     shift: ShiftWithCompany,
@@ -173,6 +246,92 @@ export class EmailService {
           }),
         ),
       );
+      this.logger.error(
+        'Unexpected error sending email',
+        (error as Error).stack,
+      );
+      throw error;
+    }
+  }
+
+  //Send this email to a pharmacist when admin or manager assigns multiple shifts via create shift series or create bulk shifts
+  async emailPharmacistMultipleShiftsAssigned(
+    to: string,
+    shift: ShiftWithCompanyAddress,
+    shiftsDates: string[],
+  ) {
+    const templateName = 'multiple_shifts_assigned';
+    const subject = `Multiple Shifts Assigned at ${shift.company.name}`;
+
+    const startTime = formatTime(shift.startTime, shift.company.timezone);
+    const endTime = formatTime(shift.endTime, shift.company.timezone);
+
+    const generateHtmlContent = (): string => {
+      const shiftListHtml = shiftsDates
+        .map((dateStr) => {
+          const shiftDate = new Date(dateStr).toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+          });
+
+          return `
+        <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #f44336; background: #fafafa;">
+          <p style="margin: 0;">Date: <strong>${shiftDate}</strong></p>
+          <p style="margin: 0;">Time: <strong>${startTime} - ${endTime}</strong></p>
+          <p style="margin: 0;">Notes: ${shift.title || 'N/A'}</p>
+          <p style="margin: 0;">${shift.description}</p>
+          <a href="${generateGCalLinkForMultipleDates(shift, dateStr)}">
+          Click here to add shift
+          to Google Calendar</a>
+        </div>
+      `;
+        })
+        .join('');
+
+      return `<p>Hi ${shift?.pharmacist?.user?.firstName},</p>
+                <p>This email confirms that you have been assigned multiple shifts at <strong>${shift.company.name}</strong></p>
+                <p><strong>Assigned Shifts Details</strong><br>
+                ${shiftListHtml}
+                <p>We’ll reach out <strong>24 hours before your shifts</strong> with your pharmacy access codes and login details.<br>
+                Once you get to the store, you’ll find a <strong>location-specific Pharmacist Relief Binder</strong> with<br>
+                guidance on workflows, procedures, and key contacts to help your shift run smoothly.</p>
+                <p>If you have any questions or concerns, please reach out to the Pharmacy manager. You will find<br>
+                the contact information located in the accepted shift on the portal.<br> 
+                <a href="https://shifthappens.vercel.app/">Click here to log in</a></p>
+                <p>Thank you for supporting our pharmacy network.</p>
+                <p>Cheers,<br>
+                CurisRx & Pharm Drugstore</p>`;
+    };
+
+    try {
+      const { data, error } = await this.resend.emails.send({
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
+        to: [to],
+        subject: subject,
+        html: generateHtmlContent(),
+      });
+
+      if (error) throw new Error(JSON.stringify(error));
+
+      await this.logEmail({
+        to,
+        subject,
+        status: 'sent',
+        templateName,
+        providerMessageId: data.id,
+      });
+
+      this.logger.log('Email sent successfully');
+      return data;
+    } catch (error) {
+      await this.logEmail({
+        to,
+        subject,
+        status: 'failed',
+        templateName,
+        errorMessage: getErrorMessage(error),
+      });
       this.logger.error(
         'Unexpected error sending email',
         (error as Error).stack,
@@ -479,6 +638,113 @@ export class EmailService {
       });
       this.logger.error(
         'Unexpected error sending email',
+        (error as Error).stack,
+      );
+      throw error;
+    }
+  }
+
+  //Send this email when pharmacist is assigned a series of shifts via update shift series
+  async emailPharmacistsShiftSeriesAssigned(
+    pharmacistsEmails: string[],
+    shifts: ShiftWithCompanyAddress[],
+  ) {
+    const templateName = 'shift_series_assigned';
+    const companyName = shifts[0]?.company?.name || 'pharmacy';
+    const subject = `Multipe Shifts Assigned at ${companyName}`;
+
+    const shiftsByEmail = shifts.reduce(
+      (acc, shift) => {
+        const email = shift.pharmacist?.user.email;
+        if (email) {
+          if (!acc[email]) acc[email] = [];
+          acc[email].push(shift);
+        }
+        return acc;
+      },
+      {} as Record<string, ShiftWithCompanyAddress[]>,
+    );
+
+    const generateHtmlContent = (email: string): string => {
+      const userShifts = shiftsByEmail[email] || [];
+
+      const shiftListHtml = userShifts
+        .map((shift) => {
+          const shiftDate = formatDate(shift.startTime, shift.company.timezone);
+          const startTime = formatTime(shift.startTime, shift.company.timezone);
+          const endTime = formatTime(shift.endTime, shift.company.timezone);
+
+          return `
+        <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #f44336; background: #fafafa;">
+          <p style="margin: 0;">Date: <strong>${shiftDate}</strong></p>
+          <p style="margin: 0;">Time: <strong>${startTime} - ${endTime}</strong></p>
+          <p style="margin: 0;">Notes: ${shift.title || 'N/A'}</p>
+          <p style="margin: 0;">${shift.description}</p>
+          <a href="${generateGCalLink(shift)}">
+          Click here to add shift
+          to Google Calendar</a>
+        </div>
+      `;
+        })
+        .join('');
+
+      return `<p>You have been assigned multiple shifts at <strong>${companyName}</strong>.</p>
+              <p>Assigned Shifts Information<br>
+              ${shiftListHtml}
+              <p>We’ll reach out <strong>24 hours before your shift</strong> with your pharmacy access codes and login details.<br>
+              Once you get to the store, you’ll find a <strong>location-specific Pharmacist Relief Binder</strong> with<br>
+              guidance on workflows, procedures, and key contacts to help your shift run smoothly.</p>
+              <p>If you have any questions or concerns, please reach out to the Pharmacy manager. You will find<br>
+              the contact information located in the accepted shift on the portal.<br> 
+              <a href="https://shifthappens.vercel.app/">Click here to log in</a></p>
+              <p>Thank you for supporting our pharmacy network.</p>
+              <p>Cheers,<br>
+              CurisRx & Pharm Drugstore</p>`;
+    };
+
+    try {
+      const emailsToProcess = Object.keys(shiftsByEmail);
+      const batchEmails = emailsToProcess.map((email) => ({
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
+        to: [email],
+        subject: subject,
+        html: generateHtmlContent(email),
+      }));
+
+      if (batchEmails.length === 0) return;
+
+      const { data, error } = await this.resend.batch.send(batchEmails);
+
+      if (error) throw new Error(JSON.stringify(error));
+
+      await Promise.all(
+        emailsToProcess.map((to, index) =>
+          this.logEmail({
+            to,
+            subject,
+            status: 'sent',
+            templateName,
+            providerMessageId: data?.data?.[index]?.id,
+          }),
+        ),
+      );
+
+      this.logger.log('Emails sent successfully');
+      return data;
+    } catch (error) {
+      await Promise.all(
+        pharmacistsEmails.map((to) =>
+          this.logEmail({
+            to,
+            subject,
+            status: 'failed',
+            templateName,
+            errorMessage: getErrorMessage(error),
+          }),
+        ),
+      );
+      this.logger.error(
+        'Unexpected error sending emails',
         (error as Error).stack,
       );
       throw error;
@@ -1088,6 +1354,49 @@ function generateGCalLink(shift: ShiftWithCompanyAddress) {
 
   const params = new URLSearchParams({
     text: `Shift at ${shift.company?.name}`,
+    dates: `${start}/${end}`,
+    details: eventDetails,
+    location:
+      getFullAddress(
+        shift.company?.address,
+        shift.company?.city,
+        shift.company?.province,
+        null,
+      ) || '',
+  });
+
+  return `${baseUrl}&${params.toString()}`;
+}
+
+function generateGCalLinkForMultipleDates(shift, dateStr) {
+  const baseUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
+
+  const combineDateAndTime = (baseDateStr, timeSource) => {
+    if (!baseDateStr || !timeSource) return '';
+
+    const timeIsoStr =
+      timeSource instanceof Date
+        ? timeSource.toISOString()
+        : String(timeSource);
+
+    const datePart = new Date(baseDateStr).toISOString().substring(0, 10);
+
+    const timePart = timeIsoStr.includes('T')
+      ? timeIsoStr.split('T')[1]
+      : timeIsoStr;
+
+    const combinedIso = `${datePart}T${timePart}`;
+    return combinedIso.replace(/[-:]/g, '').replace(/\.\d+/, '');
+  };
+
+  const start = combineDateAndTime(dateStr, shift.startTime);
+  const end = combineDateAndTime(dateStr, shift.endTime);
+
+  const appLink = `https://shifthappens.vercel.app/`;
+  const eventDetails = `Details: ${shift.title || ''}: ${shift.description || ''} \n\n<a href="${appLink}">Click here to view all details</a>`;
+
+  const params = new URLSearchParams({
+    text: `Shift at ${shift.company?.name || 'Company'}`,
     dates: `${start}/${end}`,
     details: eventDetails,
     location:
