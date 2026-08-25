@@ -1,9 +1,14 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-floating-promises */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { CreateShiftSeryDto } from './dto/create-shift-sery.dto';
 import { UpdateShiftSeryDto } from './dto/update-shift-sery.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -83,6 +88,30 @@ export class ShiftSeriesService {
               createShiftSeryDto.endMinutes,
               timezone,
             );
+
+            //If shift is taken find if one of the shifts included in the series overlaps
+            if (
+              createShiftSeryDto.status === 'taken' &&
+              createShiftSeryDto?.pharmacistId
+            ) {
+              const overlappingShift = await this.prisma.shift.findFirst({
+                where: {
+                  pharmacistId: createShiftSeryDto.pharmacistId,
+                  startTime: {
+                    lt: shiftEnd,
+                  },
+                  endTime: {
+                    gt: shiftEnd,
+                  },
+                },
+              });
+
+              if (overlappingShift) {
+                throw new ForbiddenException(
+                  `A shift for the assigned pharmacist already exists on ${dateOnly}.`,
+                );
+              }
+            }
 
             shifts.push({
               companyId: createShiftSeryDto.companyId,
@@ -219,14 +248,20 @@ export class ShiftSeriesService {
       where: whereFilter,
     });
 
-    const updatedShifts: any[] = [];
-    const newlyAssignedShifts: any[] = [];
-    const regularUpdatedShifts: any[] = [];
+    //If shift is taken, check shift does not overlaps
+    const takingShift = updateShiftSeryDto.shiftData?.status === 'taken';
+    const assignedPharmacist = updateShiftSeryDto.shiftData?.pharmacistId;
+
+    const preparedShifts: Array<{
+      shiftId: string;
+      startUtc: Date;
+      endUtc: Date;
+      companyId: string;
+      originalPharmacistId: string | null;
+    }> = [];
+    const dbOverlapConditions: Prisma.ShiftWhereInput[] = [];
 
     for (const shift of shifts) {
-      let newStartTime = shift.startTime;
-      let newEndTime = shift.endTime;
-
       const zonedStart = toZonedTime(shift.startTime, timeZone);
       const zonedEnd = toZonedTime(shift.endTime, timeZone);
 
@@ -251,24 +286,59 @@ export class ShiftSeriesService {
         zonedEnd.setDate(zonedEnd.getDate() + 1);
       }
 
-      newStartTime = fromZonedTime(zonedStart, timeZone);
-      newEndTime = fromZonedTime(zonedEnd, timeZone);
+      const startUtc = fromZonedTime(zonedStart, timeZone);
+      const endUtc = fromZonedTime(zonedEnd, timeZone);
 
-      const originalPharmacistId = shift.pharmacistId;
+      preparedShifts.push({
+        shiftId: shift.id,
+        startUtc,
+        endUtc,
+        companyId: shift.companyId,
+        originalPharmacistId: shift.pharmacistId,
+      });
 
+      if (takingShift && assignedPharmacist) {
+        dbOverlapConditions.push({
+          NOT: { id: shift.id },
+          startTime: { lt: endUtc },
+          endTime: { gt: startUtc },
+        });
+      }
+    }
+
+    if (dbOverlapConditions.length > 0) {
+      const overlappingShift = await this.prisma.shift.findFirst({
+        where: {
+          pharmacistId: assignedPharmacist,
+          OR: dbOverlapConditions,
+        },
+      });
+
+      if (overlappingShift) {
+        throw new ForbiddenException(
+          'A shift for the assigned pharmacist already exists in the same time slot as one of the updating shifts in the series.',
+        );
+      }
+    }
+
+    const updatedShifts: any[] = [];
+    const newlyAssignedShifts: any[] = [];
+    const regularUpdatedShifts: any[] = [];
+
+    for (const preparedShift of preparedShifts) {
       const updated = await this.shiftsService.update(
-        shift.id,
+        preparedShift.shiftId,
         {
           ...updateShiftSeryDto.shiftData,
-          startTime: newStartTime.toISOString(),
-          endTime: newEndTime.toISOString(),
-          companyId: shift.companyId,
+          startTime: preparedShift.startUtc.toISOString(),
+          endTime: preparedShift.endUtc.toISOString(),
+          companyId: preparedShift.companyId,
         },
         true,
       );
 
       if (updated.status === 'taken' && updated.pharmacistId) {
-        if (originalPharmacistId !== updated.pharmacistId) {
+        if (preparedShift.originalPharmacistId !== updated.pharmacistId) {
           newlyAssignedShifts.push(updated);
         } else {
           regularUpdatedShifts.push(updated);

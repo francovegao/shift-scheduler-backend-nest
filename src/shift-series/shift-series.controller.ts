@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { ShiftSeriesService } from './shift-series.service';
 import { CreateShiftSeryDto } from './dto/create-shift-sery.dto';
 import { UpdateShiftSeryDto } from './dto/update-shift-sery.dto';
@@ -6,8 +15,6 @@ import { ApiTags, ApiBearerAuth, ApiCreatedResponse } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 import { ShiftSery } from './entities/shift-sery.entity';
 import { DeleteShiftSeriesDto } from './dto/delete-shift-sery.dto';
-import { UpdateShiftDto } from 'src/shifts/dto/update-shift.dto';
-
 
 @Controller('shift-series')
 @ApiTags('Shift-series')
@@ -35,7 +42,8 @@ export class ShiftSeriesController {
   @Patch(':id')
   update(
     @Param('id') id: string,
-    @Body() updateShiftSeryDto: UpdateShiftSeryDto) {
+    @Body() updateShiftSeryDto: UpdateShiftSeryDto,
+  ) {
     return this.shiftSeriesService.update(id, updateShiftSeryDto);
   }
 

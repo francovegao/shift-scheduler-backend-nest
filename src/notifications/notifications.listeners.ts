@@ -237,8 +237,8 @@ export class NotificationsListener {
       await this.prisma.notification.createMany({
         data: locationManagers.map((m) => ({
           userId: m.id,
-          title: 'Shift Taken',
-          message: `A pharmacist has taken the shift "${shift.title}" Shift Date: ${formattedDate} Time: ${formattedStartTime}-${formattedEndTime} ${tzAbbr}.`,
+          title: 'Shift Cancelled',
+          message: `The shift "${shift.title}" Shift Date: ${formattedDate} Time: ${formattedStartTime}-${formattedEndTime} ${tzAbbr} has been cancelled.`,
           type: 'shift',
           actionUrl: `${shift.id}`,
         })),
@@ -264,6 +264,80 @@ export class NotificationsListener {
         userId: m.id,
         title: 'Shift Cancelled',
         message: `The shift "${shift.title}" Shift Date: ${formattedDate} Time: ${formattedStartTime}-${formattedEndTime} ${tzAbbr} Pharmacy: ${shift?.company?.name} has been cancelled.`,
+        type: 'shift',
+        actionUrl: `${shift.id}`,
+      })),
+    });
+  }
+
+  @OnEvent(AppEvents.SHIFT_UPDATED)
+  async handleShiftUpdatedEvent(payload: any) {
+    const { shift } = payload;
+    this.logger.log(`Shift updated: ${shift.id}`);
+
+    const { formattedDate, formattedStartTime, formattedEndTime, tzAbbr } =
+      await getFormattedDateAndTime(this.prisma, shift);
+
+    // Notify Pharmacist
+    if (shift.pharmacistId) {
+      const user = await this.prisma.pharmacistProfile.findUnique({
+        where: { id: shift.pharmacistId },
+        select: { userId: true },
+      });
+
+      if (user) {
+        await this.prisma.notification.create({
+          data: {
+            userId: user.userId,
+            title: 'Shift Updated',
+            message: `A shift has been updated, new data: "${shift.title}" Shift Date: ${formattedDate} Time: ${formattedStartTime}-${formattedEndTime} ${tzAbbr}.`,
+            type: 'shift',
+            actionUrl: `${shift.id}`,
+          },
+        });
+      }
+    }
+
+    // Notify managers of the location
+    const locationManagers = await this.prisma.user.findMany({
+      where: {
+        locationId: shift.locationId,
+        role: 'location_manager',
+      },
+      select: { id: true },
+    });
+
+    if (locationManagers.length) {
+      await this.prisma.notification.createMany({
+        data: locationManagers.map((m) => ({
+          userId: m.id,
+          title: 'Shift Updated',
+          message: `A shift has been updated: "${shift.title}" Shift Date: ${formattedDate} Time: ${formattedStartTime}-${formattedEndTime} ${tzAbbr}.`,
+          type: 'shift',
+          actionUrl: `${shift.id}`,
+        })),
+      });
+    }
+
+    // Notify managers of the company
+    const managers = await this.prisma.user.findMany({
+      where: {
+        role: 'pharmacy_manager',
+        OR: [
+          { companyId: shift.companyId },
+          { allowedCompanies: { some: { id: shift.companyId } } },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (!managers.length) return;
+
+    await this.prisma.notification.createMany({
+      data: managers.map((m) => ({
+        userId: m.id,
+        title: 'Shift Updated',
+        message: `A shift has been updated: "${shift.title}" Shift Date: ${formattedDate} Time: ${formattedStartTime}-${formattedEndTime} ${tzAbbr} Pharmacy: ${shift?.company?.name}.`,
         type: 'shift',
         actionUrl: `${shift.id}`,
       })),

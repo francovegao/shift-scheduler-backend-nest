@@ -50,6 +50,26 @@ export class ShiftsService {
       endTime: endUtc.toISOString(),
     };
 
+    if (createShiftDto.status === 'taken' && createShiftDto?.pharmacistId) {
+      const overlappingShift = await this.prisma.shift.findFirst({
+        where: {
+          pharmacistId: createShiftDto.pharmacistId,
+          startTime: {
+            lt: endUtc.toISOString(),
+          },
+          endTime: {
+            gt: startUtc.toISOString(),
+          },
+        },
+      });
+
+      if (overlappingShift) {
+        throw new ForbiddenException(
+          'A shift for the assigned pharmacist already exists in that time slot.',
+        );
+      }
+    }
+
     const createdShift = await this.prisma.shift.create({
       data: createShiftDto,
       include: {
@@ -139,6 +159,30 @@ export class ShiftsService {
 
       const startUtc = fromZonedTime(startLocal, timezone);
       const endUtc = fromZonedTime(endLocal, timezone);
+
+      //If shifts are assigned, find if there is no overlapping shift
+      if (
+        createBulkShiftDto.status === 'taken' &&
+        createBulkShiftDto?.pharmacistId
+      ) {
+        const overlappingShift = await this.prisma.shift.findFirst({
+          where: {
+            pharmacistId: createBulkShiftDto.pharmacistId,
+            startTime: {
+              lt: endUtc,
+            },
+            endTime: {
+              gt: startUtc,
+            },
+          },
+        });
+
+        if (overlappingShift) {
+          throw new ForbiddenException(
+            `A shift for the assigned pharmacist already exists on ${dateStr}.`,
+          );
+        }
+      }
 
       shiftsData.push({
         companyId: createBulkShiftDto.companyId,
@@ -1173,6 +1217,33 @@ export class ShiftsService {
           timezone,
         );
 
+    //If shift is assigned, check no shift exists in same timeslot
+    const shiftTaken = isTakingShift || existingShift.status === 'taken';
+    const assignedPharmacist =
+      updateShiftDto?.pharmacistId || existingShift?.pharmacistId;
+    if (shiftTaken && assignedPharmacist) {
+      const overlappingShift = await this.prisma.shift.findFirst({
+        where: {
+          pharmacistId: assignedPharmacist,
+          NOT: {
+            id: id,
+          },
+          startTime: {
+            lt: endUtc,
+          },
+          endTime: {
+            gt: startUtc,
+          },
+        },
+      });
+
+      if (overlappingShift) {
+        throw new ForbiddenException(
+          'A shift for the assigned pharmacist already exists in that time slot.',
+        );
+      }
+    }
+
     //update shift
     const updatedShift = await this.prisma.shift.update({
       where: { id },
@@ -1241,6 +1312,12 @@ export class ShiftsService {
         });
 
         this.eventEmitter.emit(AppEvents.SHIFT_TAKEN, {
+          shift: updatedShift,
+        });
+      }
+
+      if (oldPharmacistId === newPharmacistId) {
+        this.eventEmitter.emit(AppEvents.SHIFT_UPDATED, {
           shift: updatedShift,
         });
       }
