@@ -49,6 +49,8 @@ steps:
         'FIREBASE_PROJECT_ID=projects/353576862326/secrets/FIREBASE_PROJECT_ID:latest',
         '--set-secrets',
         'RESEND_API_KEY=projects/353576862326/secrets/RESEND_API_KEY:latest',
+        '--set-secrets',
+        'FRONTEND_URL=projects/353576862326/secrets/FRONTEND_URL_LIVE:latest',
         #'--set-env-vars', 'PORT=8080'
       ]
 
@@ -81,6 +83,8 @@ steps:
         'FIREBASE_PROJECT_ID=projects/353576862326/secrets/FIREBASE_PROJECT_ID:latest',
         '--set-secrets',
         'RESEND_API_KEY=projects/353576862326/secrets/RESEND_API_KEY:latest',
+        '--set-secrets',
+        'FRONTEND_URL=projects/353576862326/secrets/FRONTEND_URL_LIVE:latest',
         '--command',
         'npm',
         '--args',
