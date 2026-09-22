@@ -1,8 +1,23 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Query,
+} from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { UpdateNotificationDto } from './dto/update-notification.dto';
-import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { NotificationEntity } from './entities/notification.entity';
 import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 import { CurrentUser } from 'src/auth/current-user.decorator';
@@ -35,9 +50,12 @@ export class NotificationsController {
   @ApiOkResponse({ type: NotificationEntity })
   findAllUserNotifications(
     @CurrentUser() currentUser,
-    @Query() paginationDto: PaginationDto, 
+    @Query() paginationDto: PaginationDto,
   ) {
-    return this.notificationsService.findAllUserNotifications(currentUser, paginationDto);
+    return this.notificationsService.findAllUserNotifications(
+      currentUser,
+      paginationDto,
+    );
   }
 
   @Get('/unseen')
@@ -46,9 +64,12 @@ export class NotificationsController {
   @ApiOkResponse({ type: NotificationEntity })
   findUnseenNotifications(
     @CurrentUser() currentUser,
-    @Query() paginationDto: PaginationDto, 
+    @Query() paginationDto: PaginationDto,
   ) {
-    return this.notificationsService.findUnseenNotifications(currentUser, paginationDto);
+    return this.notificationsService.findUnseenNotifications(
+      currentUser,
+      paginationDto,
+    );
   }
 
   @Get(':id')
@@ -63,7 +84,10 @@ export class NotificationsController {
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
   @ApiCreatedResponse({ type: NotificationEntity })
-  update(@Param('id') id: string, @Body() updateNotificationDto: UpdateNotificationDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateNotificationDto: UpdateNotificationDto,
+  ) {
     return this.notificationsService.update(id, updateNotificationDto);
   }
 

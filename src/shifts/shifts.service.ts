@@ -1844,8 +1844,8 @@ function getWeekRange(
   monday.setDate(local.getDate() + diffToMonday);
   monday.setHours(0, 0, 0, 0);
 
-  let start = new Date(monday);
-  let end = new Date(monday);
+  const start = new Date(monday);
+  const end = new Date(monday);
 
   switch (week) {
     case 'last':

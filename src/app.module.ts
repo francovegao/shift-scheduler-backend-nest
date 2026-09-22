@@ -19,6 +19,9 @@ import { CancellationRequestsModule } from './cancellation-requests/cancellation
 import { ShiftWorkLogsModule } from './shift-work-logs/shift-work-logs.module';
 import { ReportsModule } from './reports/reports.module';
 import { PharmacistRequestsModule } from './pharmacist-requests/pharmacist-requests.module';
+import { PharmacistCommentsModule } from './pharmacist-comments/pharmacist-comments.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -39,8 +42,23 @@ import { PharmacistRequestsModule } from './pharmacist-requests/pharmacist-reque
     ShiftWorkLogsModule,
     ReportsModule,
     PharmacistRequestsModule,
+    PharmacistCommentsModule,
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000,
+        limit: 100,
+      },
+    ]),
   ],
   controllers: [AppController],
-  providers: [AppService, EmailService],
+  providers: [
+    AppService,
+    EmailService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

@@ -1,5 +1,9 @@
-import { Controller, Get, Param, Req } from '@nestjs/common';
-import { HealthCheckService, HttpHealthIndicator, HealthCheck, PrismaHealthIndicator } from '@nestjs/terminus';
+import { Controller, Get, Req } from '@nestjs/common';
+import {
+  HealthCheckService,
+  HttpHealthIndicator,
+  HealthCheck,
+} from '@nestjs/terminus';
 
 @Controller('healthz')
 export class HealthController {
@@ -19,4 +23,3 @@ export class HealthController {
     ]);
   }
 }
-

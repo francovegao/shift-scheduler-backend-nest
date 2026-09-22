@@ -46,4 +46,23 @@ export class FirebaseService {
   async deleteFirebaseUser(uid: string) {
     return admin.auth().deleteUser(uid);
   }
+
+  async generatePasswordResetLink(email: string): Promise<string> {
+    const actionCodeSettings = {
+      url: `${process.env.FRONTEND_URL}/reset_password`,
+      handleCodeInApp: true,
+    };
+    return admin.auth().generatePasswordResetLink(email, actionCodeSettings);
+  }
+
+  async generateCustomResetLink(email: string): Promise<string> {
+    const firebaseLink = await this.generatePasswordResetLink(email);
+
+    const urlParams = new URL(firebaseLink).searchParams;
+    const oobCode = urlParams.get('oobCode');
+
+    const customResetLink = `${process.env.FRONTEND_URL}/reset_password?oobCode=${oobCode}`;
+
+    return customResetLink;
+  }
 }

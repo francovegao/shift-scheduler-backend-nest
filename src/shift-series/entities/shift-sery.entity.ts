@@ -1,50 +1,49 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty } from '@nestjs/swagger';
 import { RepeatType, ShiftSeries } from '../../../generated/prisma/client';
 
 export class ShiftSery implements ShiftSeries {
-    @ApiProperty()
-    id: string;
+  @ApiProperty()
+  id: string;
 
-    @ApiProperty()
-    companyId: string;
+  @ApiProperty()
+  companyId: string;
 
-    @ApiProperty({ required: false, nullable: true })
-    locationId: string | null;
+  @ApiProperty({ required: false, nullable: true })
+  locationId: string | null;
 
-    @ApiProperty()
-    title: string;
+  @ApiProperty()
+  title: string;
 
-    @ApiProperty({ required: false, nullable: true })
-    description: string | null;
+  @ApiProperty({ required: false, nullable: true })
+  description: string | null;
 
-    @ApiProperty()
-    payRate: number;
+  @ApiProperty()
+  payRate: number;
 
-    @ApiProperty()
-    startMinutes: number;
+  @ApiProperty()
+  startMinutes: number;
 
-    @ApiProperty()
-    endMinutes: number;
+  @ApiProperty()
+  endMinutes: number;
 
-    @ApiProperty()
-    repeatType: RepeatType;
+  @ApiProperty()
+  repeatType: RepeatType;
 
-    @ApiProperty()
-    daysOfWeek: number[];
+  @ApiProperty()
+  daysOfWeek: number[];
 
-    @ApiProperty()
-    startDate: Date;
+  @ApiProperty()
+  startDate: Date;
 
-    @ApiProperty()
-    endDate: Date;
+  @ApiProperty()
+  endDate: Date;
 
-    @ApiProperty()
-    excludeWeekends: boolean;
+  @ApiProperty()
+  excludeWeekends: boolean;
 
-    @ApiProperty()
-    published: boolean;
+  @ApiProperty()
+  published: boolean;
 
-    @ApiProperty()
-    createdAt: Date;
-
+  @ApiProperty()
+  createdAt: Date;
 }

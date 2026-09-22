@@ -30,6 +30,7 @@ model User {
   pharmacistRequestsSubmitted PharmacistRequest[] @relation("PharmacistRequestsSubmitted")
   pharmacistRequestsReviewed  PharmacistRequest[] @relation("PharmacistRequestsReviewed")
   pharmacistRequest           PharmacistRequest?  @relation("PharmacistRequestUser")
+  pharmacistComments          PharmacistComment[] @relation("PharmacistCommentAuthor")
 
   @@index([companyId])
   @@index([locationId])
@@ -59,6 +60,7 @@ model Company {
   shiftSeries           ShiftSeries[]
   managers              User[]
   allowedManagers       User[]                        @relation("ManagerAllowedCompanies")
+  pharmacistComments    PharmacistComment[]
 }
 
 model PharmacistProfile {
@@ -81,6 +83,7 @@ model PharmacistProfile {
   shifts              Shift[]
   cancellationRequests ShiftCancellationRequest[]
   workLogs            ShiftWorkLog[]
+  comments            PharmacistComment[]
 }
 
 model PharmacistCompanyPermission {
@@ -96,22 +99,23 @@ model PharmacistCompanyPermission {
 }
 
 model Location {
-  id          String        @id @default(uuid())
-  name        String        @unique
-  email       String?
-  phone       String?
-  address     String?
-  city        String?
-  province    String?
-  postalCode  String?
-  companyId   String
-  GSTNumber   String?
-  legalName   String?
-  timezone    String        @default("America/Edmonton")
-  company     Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  shifts      Shift[]
-  shiftSeries ShiftSeries[]
-  managers    User[]
+  id               String             @id @default(uuid())
+  name             String             @unique
+  email            String?
+  phone            String?
+  address          String?
+  city             String?
+  province         String?
+  postalCode       String?
+  companyId        String
+  GSTNumber        String?
+  legalName        String?
+  timezone         String             @default("America/Edmonton")
+  company          Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  shifts           Shift[]
+  shiftSeries      ShiftSeries[]
+  managers         User[]
+  pharmacistComments PharmacistComment[]
 
   @@index([companyId])
 }
@@ -284,6 +288,28 @@ model PharmacistRequest {
   @@index([submittedById])
   @@index([status])
   @@index([email])
+}
+
+model PharmacistComment {
+  id           String   @id @default(uuid())
+  pharmacistId String
+  authorId     String
+  comment      String
+  companyId    String?
+  locationId   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  pharmacist PharmacistProfile @relation(fields: [pharmacistId], references: [id], onDelete: Cascade)
+  author     User              @relation("PharmacistCommentAuthor", fields: [authorId], references: [id])
+  company    Company?          @relation(fields: [companyId], references: [id])
+  location   Location?         @relation(fields: [locationId], references: [id])
+
+  @@index([pharmacistId])
+  @@index([authorId])
+  @@index([companyId])
+  @@index([locationId])
+  @@index([createdAt])
 }
 
 enum Role {

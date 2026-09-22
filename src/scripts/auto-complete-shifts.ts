@@ -4,7 +4,7 @@ import { ShiftsService } from '../shifts/shifts.service';
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule, {
-    logger: ['error', 'warn', 'log']
+    logger: ['error', 'warn', 'log'],
   });
 
   const shiftsService = app.get(ShiftsService);

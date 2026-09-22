@@ -32,13 +32,13 @@ export class PharmacistProfileEntity implements PharmacistProfile {
   @ApiProperty({ required: false, nullable: true })
   experienceYears: number | null;
 
-  @ApiProperty({default: false})
+  @ApiProperty({ default: false })
   approved: boolean;
 
-  @ApiProperty({default: false})
+  @ApiProperty({ default: false })
   canViewAllCompanies: boolean;
 
-  @ApiProperty({default: false})
+  @ApiProperty({ default: false })
   canViewPayRates: boolean;
 
   @ApiProperty()

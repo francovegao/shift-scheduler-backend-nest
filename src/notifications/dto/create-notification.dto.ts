@@ -1,4 +1,4 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsEnum,
@@ -9,33 +9,33 @@ import {
 import { NotificationType } from '../../../generated/prisma/client';
 
 export class CreateNotificationDto {
-    @IsString()
-    @IsNotEmpty()
-    @ApiProperty()
-    userId: string;
+  @IsString()
+  @IsNotEmpty()
+  @ApiProperty()
+  userId: string;
 
-    @IsString()
-    @IsNotEmpty()
-    @ApiProperty()
-    title: string;
+  @IsString()
+  @IsNotEmpty()
+  @ApiProperty()
+  title: string;
 
-    @IsString()
-    @IsNotEmpty()
-    @ApiProperty()
-    message: string;
+  @IsString()
+  @IsNotEmpty()
+  @ApiProperty()
+  message: string;
 
-    @IsString()
-    @IsNotEmpty()
-    @IsEnum(NotificationType)
-    @ApiProperty()
-    type: NotificationType;
+  @IsString()
+  @IsNotEmpty()
+  @IsEnum(NotificationType)
+  @ApiProperty()
+  type: NotificationType;
 
-    @IsString()
-    @IsOptional()
-    @ApiProperty({ required: false })
-    actionUrl?: string;
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  actionUrl?: string;
 
-    @IsBoolean()
-    @ApiProperty({ default: false })
-    seen?: boolean = false;
+  @IsBoolean()
+  @ApiProperty({ default: false })
+  seen?: boolean = false;
 }

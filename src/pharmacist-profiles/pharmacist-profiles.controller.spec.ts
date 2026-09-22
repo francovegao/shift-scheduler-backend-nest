@@ -11,7 +11,9 @@ describe('PharmacistProfilesController', () => {
       providers: [PharmacistProfilesService],
     }).compile();
 
-    controller = module.get<PharmacistProfilesController>(PharmacistProfilesController);
+    controller = module.get<PharmacistProfilesController>(
+      PharmacistProfilesController,
+    );
   });
 
   it('should be defined', () => {

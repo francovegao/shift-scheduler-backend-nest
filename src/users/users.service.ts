@@ -5,11 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
+import { CreateUserInvitationDto } from './dto/create-user-invitation.dto';
+import { CreateUserWithPharmacistDto } from './dto/create-user-with-pharmacist.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { FirebaseService } from 'src/firebase/firebase.service';
-import { CreateFirebaseUserDto } from './dto/create-firebase-user.dto';
 import { EmailService } from 'src/email/email.service';
 
 @Injectable()
@@ -25,20 +26,106 @@ export class UsersService {
     return this.prisma.user.create({ data: createUserDto });
   }
 
-  async createFirebaseUser(createFirebaseUserDto: CreateFirebaseUserDto) {
-    const newUser = await this.firebaseService.createFirebaseUser(
-      createFirebaseUserDto.email,
-      createFirebaseUserDto.password,
+  private generateSecurePassword(): string {
+    const array = new Uint8Array(16);
+    crypto.getRandomValues(array);
+    return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join(
+      '',
+    );
+  }
+
+  async createUserWithInvitation(dto: CreateUserInvitationDto) {
+    const tempPassword = this.generateSecurePassword();
+
+    const firebaseUser = await this.firebaseService.createFirebaseUser(
+      dto.email,
+      tempPassword,
     );
 
-    if (newUser.email)
-      this.emailService.emailNewUser(
-        newUser.email,
-        createFirebaseUserDto.password,
-        createFirebaseUserDto.firstName,
-      );
+    const customResetLink = await this.firebaseService.generateCustomResetLink(
+      dto.email,
+    );
 
-    return newUser;
+    const dbUser = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          firebaseUid: firebaseUser.uid,
+          email: dto.email,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          phone: dto.phone,
+          role: dto.role,
+          companyId: dto.companyId,
+          locationId: dto.locationId,
+          allowedCompanies: dto.allowedCompaniesIds?.length
+            ? { connect: dto.allowedCompaniesIds.map((id) => ({ id })) }
+            : undefined,
+        },
+      });
+
+      return user;
+    });
+
+    await this.emailService.emailNewUser(
+      dto.email,
+      customResetLink,
+      dto.firstName,
+    );
+
+    return dbUser;
+  }
+
+  async createPharmacistWithInvitation(dto: CreateUserWithPharmacistDto) {
+    const tempPassword = this.generateSecurePassword();
+
+    const firebaseUser = await this.firebaseService.createFirebaseUser(
+      dto.email,
+      tempPassword,
+    );
+
+    const customResetLink = await this.firebaseService.generateCustomResetLink(
+      dto.email,
+    );
+
+    const dbUser = await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          firebaseUid: firebaseUser.uid,
+          email: dto.email,
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          phone: dto.phone,
+          role: 'relief_pharmacist',
+        },
+      });
+
+      await tx.pharmacistProfile.create({
+        data: {
+          userId: user.id,
+          licenseNumber: dto.licenseNumber,
+          address: dto.address,
+          city: dto.city,
+          province: dto.province,
+          postalCode: dto.postalCode,
+          email: dto.eTransferEmail,
+          bio: dto.bio,
+          experienceYears: dto.experienceYears,
+          approved: dto.approved,
+          canViewAllCompanies: dto.canViewAllCompanies,
+          canViewPayRates: dto.canViewPayRates,
+        },
+      });
+
+      return user;
+    });
+
+    await this.emailService.emailNewUser(
+      dto.email,
+      customResetLink,
+      dto.firstName,
+    );
+
+    return dbUser;
   }
 
   async findAll(

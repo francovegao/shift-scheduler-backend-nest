@@ -1,4 +1,9 @@
-import { MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+} from '@nestjs/common';
 import { TerminusModule } from '@nestjs/terminus';
 import { HttpModule } from '@nestjs/axios';
 import { HealthController } from './health.controller';
@@ -15,5 +20,3 @@ export class HealthModule implements NestModule {
       .forRoutes({ path: 'healthz*path', method: RequestMethod.ALL }); // Apply to any route starting with healthz
   }
 }
-
-

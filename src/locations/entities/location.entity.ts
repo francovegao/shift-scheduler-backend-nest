@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Location } from '../../../generated/prisma/client';
 
-
 export class LocationEntity implements Location {
   @ApiProperty()
   id: string;
@@ -33,7 +32,7 @@ export class LocationEntity implements Location {
   @ApiProperty({ required: false, nullable: true })
   postalCode: string | null;
 
-  @ApiProperty({ required: false})
+  @ApiProperty({ required: false })
   timezone: string;
 
   @ApiProperty()

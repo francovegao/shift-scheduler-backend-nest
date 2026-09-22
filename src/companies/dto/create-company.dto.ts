@@ -1,8 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MinLength, IsEmail, IsBoolean } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  MinLength,
+  IsEmail,
+  IsBoolean,
+} from 'class-validator';
 
 export class CreateCompanyDto {
-  
   @IsBoolean()
   @ApiProperty({ default: true })
   approved?: boolean = true;
@@ -58,7 +63,6 @@ export class CreateCompanyDto {
   postalCode?: string;
 
   @IsString()
-  @ApiProperty({ default: "America/Edmonton" })
-  timezone?: string = "America/Edmonton";
+  @ApiProperty({ default: 'America/Edmonton' })
+  timezone?: string = 'America/Edmonton';
 }
-

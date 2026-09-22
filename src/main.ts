@@ -30,7 +30,6 @@ async function bootstrap() {
   const { httpAdapter } = app.get(HttpAdapterHost);
   app.useGlobalFilters(new PrismaClientExceptionFilter(httpAdapter));
 
-
   await app.listen(port, host);
 }
 bootstrap();

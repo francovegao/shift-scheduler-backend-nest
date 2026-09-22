@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { CreateUserInvitationDto } from './dto/create-user-invitation.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import {
   ApiCreatedResponse,
@@ -23,7 +24,7 @@ import {
 import { UserEntity } from './entities/user.entity';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
-import { CreateFirebaseUserDto } from './dto/create-firebase-user.dto';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('users')
 @ApiTags('Users')
@@ -38,12 +39,15 @@ export class UsersController {
     return this.usersService.create(createUserDto);
   }
 
-  @Post('/firebase')
+  @Post('invite')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
-  @ApiCreatedResponse({})
-  createFirebaseUser(@Body() createFirebaseUserDto: CreateFirebaseUserDto) {
-    return this.usersService.createFirebaseUser(createFirebaseUserDto);
+  @ApiCreatedResponse({ type: UserEntity })
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  createUserWithInvitation(
+    @Body() createUserInvitationDto: CreateUserInvitationDto,
+  ) {
+    return this.usersService.createUserWithInvitation(createUserInvitationDto);
   }
 
   @Get()

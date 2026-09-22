@@ -1,8 +1,24 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { LocationsService } from './locations.service';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
-import { ApiBearerAuth, ApiCreatedResponse, ApiOkResponse, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import { LocationEntity } from './entities/location.entity';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { CurrentUser } from 'src/auth/current-user.decorator';
@@ -30,14 +46,21 @@ export class LocationsController {
   @ApiQuery({ name: 'sortOrder', required: false, type: String })
   @ApiOkResponse({ type: LocationEntity, isArray: true })
   findAll(
-      @CurrentUser() currentUser,
-      @Query() paginationDto: PaginationDto, 
-      @Query('search') search?: string,
-      @Query('companyId') companyId?: string,
-      @Query('sortBy') sortBy?: string,
-      @Query('sortOrder') sortOrder?: "asc" | "desc",
+    @CurrentUser() currentUser,
+    @Query() paginationDto: PaginationDto,
+    @Query('search') search?: string,
+    @Query('companyId') companyId?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
   ) {
-    return this.locationsService.findAll(currentUser, paginationDto, search, companyId, sortBy, sortOrder);
+    return this.locationsService.findAll(
+      currentUser,
+      paginationDto,
+      search,
+      companyId,
+      sortBy,
+      sortOrder,
+    );
   }
 
   @Get(':id')
@@ -60,7 +83,10 @@ export class LocationsController {
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()
   @ApiCreatedResponse({ type: LocationEntity })
-  update(@Param('id') id: string, @Body() updateLocationDto: UpdateLocationDto) {
+  update(
+    @Param('id') id: string,
+    @Body() updateLocationDto: UpdateLocationDto,
+  ) {
     return this.locationsService.update(id, updateLocationDto);
   }
 

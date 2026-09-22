@@ -1083,7 +1083,7 @@ export class EmailService {
   }
 
   //Send this email when a new user is added to the system
-  async emailNewUser(to: string, password: string, firstName?: string) {
+  async emailNewUser(to: string, resetLink: string, firstName?: string) {
     const templateName = 'new_account_created';
     const subject = `Your Account has been Created for Curis Pharmacy Relief Portal!`;
 
@@ -1091,11 +1091,15 @@ export class EmailService {
                               <p>Welcome to Shift Happens! Your account has been successfully created. This portal will be <br>
                               used to find open shifts, see accepted shifts, and have direct contact with any of the CurisRx & Pharm Drugstore<br>
                               store managers!</p>
-                              <p>Below you will find your login information:<br>
-                              Email: <strong>${to}</strong><br>
-                              Temporary Password: <strong>${password}</strong></p>
-                              <p>Please log in and <strong>update your password</strong> in the profile tab located on the left hand side of the dashboard.</p>
-                              <p><strong>Login here:</strong> <a href="https://shifthappens.vercel.app">Click here to log in.</a></p>
+                              <p>Click the button below to set your password and access your account:</p>
+                              <p style="text-align: left; margin: 30px 0;">
+                                <a href="${resetLink}" style="background-color: #ed2375; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;">
+                                  Set Your Password
+                                </a>
+                              </p>
+                              <p>Or copy and paste this link into your browser:</p>
+                              <p style="word-break: break-all; color: #666; font-size: 14px;">${resetLink}</p>
+                              <p>This link will expire in 1 hour.</p>
                               <p><strong>If this is your first time logging in, we recommend taking a minute to:</strong></p>
                               <ul>
                                 <li>Complete your profile</li>
@@ -1318,6 +1322,62 @@ export class EmailService {
       });
       this.logger.error(
         'Unexpected error sending email',
+        (error as Error).stack,
+      );
+      throw error;
+    }
+  }
+
+  async sendPasswordResetEmail(to: string, resetLink: string) {
+    const templateName = 'password_reset';
+    const subject = 'Reset Your Password - Shift Happens';
+
+    const htmlContent = `<p>Hi there,</p>
+                              <p>You requested to reset your password for your Shift Happens account.</p>
+                              <p>Click the button below to set a new password:</p>
+                              <p style="text-align: left; margin: 30px 0;">
+                                <a href="${resetLink}" style="background-color: #ed2375; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;">
+                                  Reset Password
+                                </a>
+                              </p>
+                              <p>Or copy and paste this link into your browser:</p>
+                              <p style="word-break: break-all; color: #666; font-size: 14px;">${resetLink}</p>
+                              <p>This link will expire in 1 hour.</p>
+                              <p>If you didn't request this, you can safely ignore this email.</p>
+                              <p>Cheers,<br>
+                              CurisRx Pharmacy<br>
+                              Pharm Drugstore</p>`;
+
+    try {
+      const { data, error } = await this.resend.emails.send({
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
+        to: [to],
+        subject: subject,
+        html: htmlContent,
+      });
+
+      if (error) throw new Error(JSON.stringify(error));
+
+      await this.logEmail({
+        to,
+        subject,
+        status: 'sent',
+        templateName,
+        providerMessageId: data.id,
+      });
+
+      this.logger.log('Password reset email sent successfully');
+      return data;
+    } catch (error) {
+      await this.logEmail({
+        to,
+        subject,
+        status: 'failed',
+        templateName,
+        errorMessage: getErrorMessage(error),
+      });
+      this.logger.error(
+        'Unexpected error sending password reset email',
         (error as Error).stack,
       );
       throw error;

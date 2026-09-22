@@ -11,7 +11,9 @@ describe('CancellationRequestsController', () => {
       providers: [CancellationRequestsService],
     }).compile();
 
-    controller = module.get<CancellationRequestsController>(CancellationRequestsController);
+    controller = module.get<CancellationRequestsController>(
+      CancellationRequestsController,
+    );
   });
 
   it('should be defined', () => {

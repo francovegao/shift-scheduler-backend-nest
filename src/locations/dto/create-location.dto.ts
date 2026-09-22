@@ -1,8 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MinLength, IsEmail, IsBoolean, IsOptional } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  MinLength,
+  IsEmail,
+  IsOptional,
+} from 'class-validator';
 
 export class CreateLocationDto {
-
   @IsString()
   @IsNotEmpty()
   @MinLength(3)
@@ -46,9 +51,9 @@ export class CreateLocationDto {
   @IsString()
   @IsNotEmpty()
   @ApiProperty()
-  companyId: string
+  companyId: string;
 
   @IsString()
-  @ApiProperty({ default: "America/Edmonton" })
-  timezone?: string = "America/Edmonton";
+  @ApiProperty({ default: 'America/Edmonton' })
+  timezone?: string = 'America/Edmonton';
 }

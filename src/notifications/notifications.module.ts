@@ -9,7 +9,12 @@ import { EmailService } from 'src/email/email.service';
 
 @Module({
   controllers: [NotificationsController],
-  providers: [NotificationsService, NotificationsListener, UsersService, EmailService],
+  providers: [
+    NotificationsService,
+    NotificationsListener,
+    UsersService,
+    EmailService,
+  ],
   imports: [PrismaModule, AuthModule],
 })
 export class NotificationsModule {}

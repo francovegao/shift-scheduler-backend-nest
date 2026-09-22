@@ -9,7 +9,9 @@ describe('CancellationRequestsService', () => {
       providers: [CancellationRequestsService],
     }).compile();
 
-    service = module.get<CancellationRequestsService>(CancellationRequestsService);
+    service = module.get<CancellationRequestsService>(
+      CancellationRequestsService,
+    );
   });
 
   it('should be defined', () => {

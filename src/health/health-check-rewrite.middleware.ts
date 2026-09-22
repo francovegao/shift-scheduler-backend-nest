@@ -10,9 +10,9 @@ export class HealthCheckUrlRewriteMiddleware implements NestMiddleware {
       if (req.url.length > '/healthz'.length) {
         // Log the change for debugging
         console.log(`Rewriting URL from: ${req.url} to: /healthz`);
-        
+
         // Rewrite the URL to only include /healthz
-        req.url = '/healthz'; 
+        req.url = '/healthz';
       }
     }
     next();

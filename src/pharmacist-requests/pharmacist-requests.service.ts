@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-floating-promises */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
+
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
+
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   ConflictException,
   ForbiddenException,
   Injectable,
-  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { CreatePharmacistRequestDto } from './dto/create-pharmacist-request.dto';
@@ -15,9 +14,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { RejectPharmacistRequestDto } from './dto/reject-pharmacist-request.dto';
 import { UsersService } from 'src/users/users.service';
-import { PharmacistProfilesService } from 'src/pharmacist-profiles/pharmacist-profiles.service';
 import { ApprovePharmacistRequestDto } from './dto/approve-pharmacist-request.dto';
-import { FirebaseService } from 'src/firebase/firebase.service';
 import { Prisma } from 'generated/prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AppEvents } from 'src/events/app-events';
@@ -28,7 +25,6 @@ export class PharmacistRequestsService {
   constructor(
     private prisma: PrismaService,
     private usersService: UsersService,
-    private firebaseService: FirebaseService,
     private eventEmitter: EventEmitter2,
     private emailService: EmailService,
   ) {}
@@ -192,116 +188,54 @@ export class PharmacistRequestsService {
       );
     }
 
-    let newFirebaseUser: any = null;
-    try {
-      newFirebaseUser = await this.usersService.createFirebaseUser({
-        email: pharmacistRequest.email,
-        password: 'temporaryPass',
-        firstName: pharmacistRequest.firstName,
-      });
-    } catch (error) {
-      throw new InternalServerErrorException(
-        'Failed to create user in authentication provider',
+    const invitationDto = {
+      email: pharmacistRequest.email,
+      firstName: pharmacistRequest.firstName,
+      lastName: pharmacistRequest.lastName,
+      phone: pharmacistRequest.phone || undefined,
+      licenseNumber: pharmacistRequest.licenseNumber || undefined,
+      address: pharmacistRequest.address || undefined,
+      city: pharmacistRequest.city || undefined,
+      province: pharmacistRequest.province || undefined,
+      postalCode: pharmacistRequest.postalCode || undefined,
+      eTransferEmail: pharmacistRequest.eTransferEmail || undefined,
+      bio: pharmacistRequest.bio || undefined,
+      experienceYears: pharmacistRequest.experienceYears || undefined,
+      approved: approvePharmacistRequestDto.approved,
+      canViewAllCompanies: approvePharmacistRequestDto.canViewAllCompanies,
+      canViewPayRates: approvePharmacistRequestDto.canViewPayRates,
+    };
+
+    await this.usersService.createPharmacistWithInvitation(invitationDto);
+
+    const updatedPharmacistRequest = await this.prisma.pharmacistRequest.update(
+      {
+        where: { id },
+        data: {
+          status: 'approved',
+          reviewedAt: new Date(),
+          reviewedById: currentUser.id,
+        },
+      },
+    );
+
+    this.eventEmitter.emit(AppEvents.PHARMACIST_REQUEST_APPROVED, {
+      pharmacistRequest: updatedPharmacistRequest,
+    });
+
+    const submitter = await this.prisma.user.findUnique({
+      where: { id: pharmacistRequest.submittedById },
+      select: { email: true },
+    });
+
+    if (submitter?.email && updatedPharmacistRequest) {
+      this.emailService.emailPharmacistRequestApproved(
+        submitter?.email,
+        updatedPharmacistRequest,
       );
     }
 
-    try {
-      await this.prisma.$transaction(async (tx) => {
-        //Create User
-        const newUser = await tx.user.create({
-          data: {
-            firebaseUid: newFirebaseUser.uid,
-
-            email: pharmacistRequest.email,
-            firstName: pharmacistRequest.firstName,
-            lastName: pharmacistRequest.lastName,
-            phone: pharmacistRequest?.phone || undefined,
-            role: 'relief_pharmacist',
-          },
-        });
-
-        //Create pharmacist profile
-        await tx.pharmacistProfile.create({
-          data: {
-            userId: newUser.id,
-            licenseNumber: pharmacistRequest.licenseNumber || undefined,
-            address: pharmacistRequest.address || undefined,
-            city: pharmacistRequest.city || undefined,
-            province: pharmacistRequest.province || undefined,
-            postalCode: pharmacistRequest.postalCode || undefined,
-            email: pharmacistRequest.eTransferEmail || undefined,
-            bio: pharmacistRequest.bio || undefined,
-            experienceYears: pharmacistRequest.experienceYears || undefined,
-            approved: approvePharmacistRequestDto.approved,
-            canViewAllCompanies:
-              approvePharmacistRequestDto.canViewAllCompanies,
-            canViewPayRates: approvePharmacistRequestDto.canViewPayRates,
-            // companyPermissions: approvePharmacistRequestDto.companyPermissions
-            //   ? {
-            //       create: approvePharmacistRequestDto.companyPermissions.map(
-            //         (permission) => ({
-            //           companyId: permission.companyId,
-            //           canViewPayRate: permission.canViewPayRate,
-            //         }),
-            //       ),
-            //     }
-            //   : undefined,
-          },
-        });
-
-        //Update pharmacistRequest
-        await tx.pharmacistRequest.update({
-          where: { id },
-          data: {
-            status: 'approved',
-            reviewedAt: new Date(),
-            reviewedById: currentUser.id,
-            createdUserId: newUser.id,
-          },
-        });
-      });
-
-      ///emit event for notifications
-      const updatedPharmacistRequest =
-        await this.prisma.pharmacistRequest.findUnique({
-          where: {
-            id,
-          },
-        });
-
-      this.eventEmitter.emit(AppEvents.PHARMACIST_REQUEST_APPROVED, {
-        pharmacistRequest: updatedPharmacistRequest,
-      });
-
-      //Send email to pharmacy manager
-      const submitter = await this.prisma.user.findUnique({
-        where: { id: pharmacistRequest.submittedById },
-        select: { email: true },
-      });
-
-      if (submitter?.email && updatedPharmacistRequest) {
-        this.emailService.emailPharmacistRequestApproved(
-          submitter?.email,
-          updatedPharmacistRequest,
-        );
-      }
-
-      return { success: true };
-    } catch (dbError) {
-      if (newFirebaseUser && newFirebaseUser.uid) {
-        try {
-          await this.firebaseService.deleteFirebaseUser(newFirebaseUser.uid);
-        } catch (cleanupError) {
-          console.error(
-            `Orphan Firebase UID Alert: ${newFirebaseUser.uid} cleanup failed.`,
-            cleanupError,
-          );
-        }
-      }
-      throw new InternalServerErrorException(
-        'Database configuration failed. Account generation rolled back.',
-      );
-    }
+    return { success: true };
   }
 
   async reject(

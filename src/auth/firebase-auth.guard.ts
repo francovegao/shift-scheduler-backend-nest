@@ -1,3 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   CanActivate,
   ExecutionContext,
@@ -45,17 +49,17 @@ export class FirebaseAuthGuard implements CanActivate {
       };
 
       return true;
-    } catch (error) {
-        if (error.code === 'auth/id-token-expired') {
-            console.error('Token has expired.');
-            throw new UnauthorizedException('Token has expired.');
-        } else if (error.code === 'auth/invalid-id-token') {
-            console.error('Invalid ID token provided.');
-            throw new UnauthorizedException('Invalid ID token provided.');
-        } else {
-            console.error('Error verifying token:', error);
-            throw new UnauthorizedException('Error verifying token:', error);
-        }
+    } catch (error: any) {
+      if (error.code === 'auth/id-token-expired') {
+        console.error('Token has expired.');
+        throw new UnauthorizedException('Token has expired.');
+      } else if (error.code === 'auth/invalid-id-token') {
+        console.error('Invalid ID token provided.');
+        throw new UnauthorizedException('Invalid ID token provided.');
+      } else {
+        console.error('Error verifying token:', error);
+        throw new UnauthorizedException('Error verifying token:', error);
+      }
     }
   }
 }
