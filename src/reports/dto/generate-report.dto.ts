@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class GenerateReportDto {
   @IsString()
@@ -12,18 +12,18 @@ export class GenerateReportDto {
   @ApiProperty({ required: false })
   endDate?: string;
 
-  @IsString()
+  @IsArray()
   @IsOptional()
-  @ApiProperty({ required: false })
-  companyId?: string;
+  @ApiProperty({ required: false, type: [String] })
+  companyIds?: string[];
 
-  @IsString()
+  @IsArray()
   @IsOptional()
-  @ApiProperty({ required: false })
-  pharmacistId?: string;
+  @ApiProperty({ required: false, type: [String] })
+  pharmacistIds?: string[];
 
   @IsString()
   @IsNotEmpty()
-  @ApiProperty()
-  type: 'companies' | 'pharmacists' | 'shifts';
+  @ApiProperty({ enum: ['shifts', 'company', 'pharmacist'] })
+  type: 'shifts' | 'company' | 'pharmacist';
 }

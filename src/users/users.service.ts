@@ -1,4 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -12,6 +14,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { FirebaseService } from 'src/firebase/firebase.service';
 import { EmailService } from 'src/email/email.service';
+import { UserRecord } from 'node_modules/firebase-admin/lib/auth/user-record';
 
 @Injectable()
 export class UsersService {
@@ -77,11 +80,24 @@ export class UsersService {
 
   async createPharmacistWithInvitation(dto: CreateUserWithPharmacistDto) {
     const tempPassword = this.generateSecurePassword();
+    let firebaseUser: UserRecord;
 
-    const firebaseUser = await this.firebaseService.createFirebaseUser(
-      dto.email,
-      tempPassword,
-    );
+    try {
+      firebaseUser = await this.firebaseService.createFirebaseUser(
+        dto.email,
+        tempPassword,
+      );
+    } catch (error: any) {
+      if (error.errorInfo?.code === 'auth/email-already-exists') {
+        throw new ConflictException(
+          'The email address is already in use by another account.',
+        );
+      }
+
+      throw new InternalServerErrorException(
+        error.message || 'Failed to create authentication account.',
+      );
+    }
 
     const customResetLink = await this.firebaseService.generateCustomResetLink(
       dto.email,
