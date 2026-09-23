@@ -10,7 +10,8 @@ import { StorageService } from 'src/storage/storage.service';
 import { format, toZonedTime } from 'date-fns-tz';
 import { v4 as uuid } from 'uuid';
 
-interface PharmacistSummary {
+interface PharmacistEntry {
+  pharmacistId: string;
   pharmacistName: string;
   shiftCount: number;
   scheduledHours: number;
@@ -18,8 +19,9 @@ interface PharmacistSummary {
 }
 
 interface CompanySummary {
+  companyId: string;
   companyName: string;
-  pharmacists: PharmacistSummary[];
+  pharmacists: Map<string, PharmacistEntry>;
   totalShifts: number;
   totalHours: number;
   totalCost: number;
@@ -32,7 +34,29 @@ interface GrandTotal {
 }
 
 interface CompanyReportData {
-  companies: CompanySummary[];
+  companies: Map<string, CompanySummary>;
+  grandTotal: GrandTotal;
+}
+
+interface CompanyEntry {
+  companyId: string;
+  companyName: string;
+  shiftCount: number;
+  scheduledHours: number;
+  totalEarned: number;
+}
+
+interface PharmacistSummaryData {
+  pharmacistId: string;
+  pharmacistName: string;
+  companies: Map<string, CompanyEntry>;
+  totalShifts: number;
+  totalHours: number;
+  totalEarned: number;
+}
+
+interface PharmacistReportData {
+  pharmacists: Map<string, PharmacistSummaryData>;
   grandTotal: GrandTotal;
 }
 
@@ -52,9 +76,18 @@ export class ReportsService {
         {
           const companyData =
             await this.getCompanySummaryReportData(generateReportDto);
-          const summary = this.buildCompanySummary(companyData);
-          formatted = this.mapCompanySummaryToCsvFormat(summary);
+          const companySummary = this.buildCompanySummary(companyData);
+          formatted = this.mapCompanySummaryToCsvFormat(companySummary);
           fileName = this.generateFileName('company');
+        }
+        break;
+      case 'pharmacist':
+        {
+          const pharmacistData =
+            await this.getPharmacistSummaryReportData(generateReportDto);
+          const pharmacistSummary = this.buildPharmacistSummary(pharmacistData);
+          formatted = this.mapPharmacistSummaryToCsvFormat(pharmacistSummary);
+          fileName = this.generateFileName('pharmacist');
         }
         break;
       case 'shifts':
@@ -160,11 +193,178 @@ export class ReportsService {
     });
   }
 
+  async getPharmacistSummaryReportData(generateReportDto: GenerateReportDto) {
+    if (generateReportDto.type !== 'pharmacist') {
+      throw new BadRequestException(
+        'Invalid report type for pharmacist summary',
+      );
+    }
+
+    const startDate = generateReportDto.startDate
+      ? new Date(generateReportDto.startDate)
+      : null;
+    const endDate = generateReportDto.endDate
+      ? new Date(generateReportDto.endDate)
+      : null;
+
+    let endOfRange: Date | null = null;
+    if (endDate) {
+      endOfRange = new Date(endDate);
+      endOfRange.setDate(endOfRange.getDate() + 1);
+    }
+
+    const where: any = {
+      pharmacistId: { not: null },
+      status: { in: ['taken', 'completed'] },
+    };
+
+    if (startDate) {
+      where.startTime = { ...where.startTime, gte: startDate };
+    }
+    if (endOfRange) {
+      where.startTime = { ...where.startTime, lt: endOfRange };
+    }
+    if (generateReportDto.pharmacistIds?.length) {
+      where.pharmacistId = { in: generateReportDto.pharmacistIds };
+    }
+
+    return this.prisma.shift.findMany({
+      where,
+      select: {
+        id: true,
+        startTime: true,
+        endTime: true,
+        payRate: true,
+        status: true,
+        companyId: true,
+        company: { select: { name: true } },
+        pharmacistId: true,
+        pharmacist: {
+          select: { user: { select: { firstName: true, lastName: true } } },
+        },
+      },
+    });
+  }
+
+  private buildPharmacistSummary(rawShifts: any[]): PharmacistReportData {
+    const pharmacistMap = new Map<string, PharmacistSummaryData>();
+
+    for (const shift of rawShifts) {
+      const pharmacistId = shift.pharmacistId ?? 'unknown';
+      const pharmacistName = shift.pharmacist?.user
+        ? `${shift.pharmacist.user.firstName ?? ''} ${shift.pharmacist.user.lastName ?? ''}`.trim()
+        : 'Unknown Pharmacist';
+
+      const companyId = shift.companyId ?? 'unknown';
+      const companyName = shift.company?.name ?? 'Unknown Company';
+
+      const scheduledHours =
+        (new Date(shift.endTime).getTime() -
+          new Date(shift.startTime).getTime()) /
+        3_600_000;
+      const totalEarned = scheduledHours * Number(shift.payRate);
+
+      if (!pharmacistMap.has(pharmacistId)) {
+        pharmacistMap.set(pharmacistId, {
+          pharmacistId,
+          pharmacistName,
+          companies: new Map(),
+          totalShifts: 0,
+          totalHours: 0,
+          totalEarned: 0,
+        });
+      }
+
+      const pharmacist = pharmacistMap.get(pharmacistId)!;
+
+      if (!pharmacist.companies.has(companyId)) {
+        pharmacist.companies.set(companyId, {
+          companyId,
+          companyName,
+          shiftCount: 0,
+          scheduledHours: 0,
+          totalEarned: 0,
+        });
+      }
+
+      const company = pharmacist.companies.get(companyId)!;
+
+      company.shiftCount += 1;
+      company.scheduledHours += scheduledHours;
+      company.totalEarned += totalEarned;
+
+      pharmacist.totalShifts += 1;
+      pharmacist.totalHours += scheduledHours;
+      pharmacist.totalEarned += totalEarned;
+    }
+
+    const grandTotal: GrandTotal = {
+      shiftCount: 0,
+      scheduledHours: 0,
+      totalCost: 0,
+    };
+
+    for (const pharmacist of pharmacistMap.values()) {
+      grandTotal.shiftCount += pharmacist.totalShifts;
+      grandTotal.scheduledHours += pharmacist.totalHours;
+      grandTotal.totalCost += pharmacist.totalEarned;
+    }
+
+    return { pharmacists: pharmacistMap, grandTotal };
+  }
+
+  private mapPharmacistSummaryToCsvFormat(data: PharmacistReportData) {
+    const rows: any[] = [];
+
+    const sortedPharmacists = Array.from(data.pharmacists.values()).sort(
+      (a, b) => a.pharmacistName.localeCompare(b.pharmacistName),
+    );
+
+    for (const pharmacist of sortedPharmacists) {
+      const sortedCompanies = Array.from(pharmacist.companies.values()).sort(
+        (a, b) => a.companyName.localeCompare(b.companyName),
+      );
+
+      for (const company of sortedCompanies) {
+        rows.push({
+          row_type: 'Pharmacist',
+          pharmacist_name: pharmacist.pharmacistName,
+          company_name: company.companyName,
+          shift_count: company.shiftCount,
+          scheduled_hours: Number(company.scheduledHours.toFixed(2)),
+          total_earned: Number(company.totalEarned.toFixed(2)),
+        });
+      }
+
+      rows.push({
+        row_type: 'Pharmacist Total',
+        pharmacist_name: pharmacist.pharmacistName,
+        company_name: '',
+        shift_count: pharmacist.totalShifts,
+        scheduled_hours: Number(pharmacist.totalHours.toFixed(2)),
+        total_earned: Number(pharmacist.totalEarned.toFixed(2)),
+      });
+    }
+
+    rows.push({
+      row_type: 'Grand Total',
+      pharmacist_name: 'All Selected Pharmacists',
+      company_name: 'All Companies',
+      shift_count: data.grandTotal.shiftCount,
+      scheduled_hours: Number(data.grandTotal.scheduledHours.toFixed(2)),
+      total_earned: Number(data.grandTotal.totalCost.toFixed(2)),
+    });
+
+    return rows;
+  }
+
   private buildCompanySummary(rawShifts: any[]): CompanyReportData {
     const companyMap = new Map<string, CompanySummary>();
 
     for (const shift of rawShifts) {
+      const companyId = shift.companyId ?? 'unknown';
       const companyName = shift.company?.name ?? 'Unknown Company';
+      const pharmacistId = shift.pharmacistId ?? 'unknown';
       const pharmacistName = shift.pharmacist?.user
         ? `${shift.pharmacist.user.firstName ?? ''} ${shift.pharmacist.user.lastName ?? ''}`.trim()
         : 'Unknown Pharmacist';
@@ -175,30 +375,30 @@ export class ReportsService {
         3_600_000;
       const totalCost = scheduledHours * Number(shift.payRate);
 
-      if (!companyMap.has(companyName)) {
-        companyMap.set(companyName, {
+      if (!companyMap.has(companyId)) {
+        companyMap.set(companyId, {
+          companyId,
           companyName,
-          pharmacists: [],
+          pharmacists: new Map(),
           totalShifts: 0,
           totalHours: 0,
           totalCost: 0,
         });
       }
 
-      const company = companyMap.get(companyName)!;
+      const company = companyMap.get(companyId)!;
 
-      let pharmacist = company.pharmacists.find(
-        (p) => p.pharmacistName === pharmacistName,
-      );
-      if (!pharmacist) {
-        pharmacist = {
+      if (!company.pharmacists.has(pharmacistId)) {
+        company.pharmacists.set(pharmacistId, {
+          pharmacistId,
           pharmacistName,
           shiftCount: 0,
           scheduledHours: 0,
           totalCost: 0,
-        };
-        company.pharmacists.push(pharmacist);
+        });
       }
+
+      const pharmacist = company.pharmacists.get(pharmacistId)!;
 
       pharmacist.shiftCount += 1;
       pharmacist.scheduledHours += scheduledHours;
@@ -209,27 +409,34 @@ export class ReportsService {
       company.totalCost += totalCost;
     }
 
-    const companies = Array.from(companyMap.values());
     const grandTotal: GrandTotal = {
       shiftCount: 0,
       scheduledHours: 0,
       totalCost: 0,
     };
 
-    for (const company of companies) {
+    for (const company of companyMap.values()) {
       grandTotal.shiftCount += company.totalShifts;
       grandTotal.scheduledHours += company.totalHours;
       grandTotal.totalCost += company.totalCost;
     }
 
-    return { companies, grandTotal };
+    return { companies: companyMap, grandTotal };
   }
 
   private mapCompanySummaryToCsvFormat(data: CompanyReportData) {
     const rows: any[] = [];
 
-    for (const company of data.companies) {
-      for (const pharmacist of company.pharmacists) {
+    const sortedCompanies = Array.from(data.companies.values()).sort((a, b) =>
+      a.companyName.localeCompare(b.companyName),
+    );
+
+    for (const company of sortedCompanies) {
+      const sortedPharmacists = Array.from(company.pharmacists.values()).sort(
+        (a, b) => a.pharmacistName.localeCompare(b.pharmacistName),
+      );
+
+      for (const pharmacist of sortedPharmacists) {
         rows.push({
           row_type: 'Pharmacist',
           company_name: company.companyName,
@@ -331,6 +538,15 @@ export class ReportsService {
         'shift_count',
         'scheduled_hours',
         'total_cost',
+      ];
+    } else if (type === 'pharmacist') {
+      fields = [
+        'row_type',
+        'pharmacist_name',
+        'company_name',
+        'shift_count',
+        'scheduled_hours',
+        'total_earned',
       ];
     } else {
       fields = [
