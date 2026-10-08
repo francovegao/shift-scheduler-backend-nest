@@ -32,6 +32,10 @@ model User {
   pharmacistRequest           PharmacistRequest?  @relation("PharmacistRequestUser")
   pharmacistComments          PharmacistComment[] @relation("PharmacistCommentAuthor")
 
+  emailTemplatesCreated       EmailTemplate[]        @relation("EmailTemplateCreatedBy")
+  emailTemplatesUpdated       EmailTemplate[]        @relation("EmailTemplateUpdatedBy")
+  emailTemplateVersions       EmailTemplateVersion[] @relation("EmailTemplateVersionChangedBy")
+
   @@index([companyId])
   @@index([locationId])
 }
@@ -310,6 +314,54 @@ model PharmacistComment {
   @@index([companyId])
   @@index([locationId])
   @@index([createdAt])
+}
+
+model EmailTemplate {
+  id                String   @id @default(uuid())
+
+  key               String   @unique
+  name              String
+  description       String?
+
+  subjectTemplate   String
+  htmlTemplate      String   @db.Text
+  textTemplate      String?  @db.Text
+
+  variables         Json?
+
+  isActive          Boolean  @default(true)
+  allowManualSend   Boolean  @default(false)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  createdById       String?
+  updatedById       String?
+
+  createdBy         User? @relation("EmailTemplateCreatedBy", fields: [createdById], references: [id])
+  updatedBy         User? @relation("EmailTemplateUpdatedBy", fields: [updatedById], references: [id])
+
+  versions          EmailTemplateVersion[]
+}
+
+model EmailTemplateVersion {
+  id               String   @id @default(uuid())
+
+  templateId       String
+
+  version          Int
+
+  subjectTemplate  String
+  htmlTemplate     String   @db.Text
+  textTemplate     String?  @db.Text
+
+  changedById      String?
+  createdAt        DateTime @default(now())
+
+  template         EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  changedBy        User? @relation("EmailTemplateVersionChangedBy", fields: [changedById], references: [id])
+
+  @@unique([templateId, version])
 }
 
 enum Role {
