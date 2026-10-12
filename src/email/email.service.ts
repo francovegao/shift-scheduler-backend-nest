@@ -2,9 +2,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Injectable, Logger } from '@nestjs/common';
 import { PharmacistRequest, Shift } from '../../generated/prisma/client';
-import { Resend } from 'resend';
+import {
+  Resend,
+  CreateBatchSuccessResponse,
+  CreateBatchRequestOptions,
+} from 'resend';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { EmailTemplateRendererService } from './email-template-renderer.service';
 
 type ShiftWithCompany = Shift & { company: { name: string; timezone: string } };
 type ShiftWithCompanyAddress = Shift & {
@@ -43,8 +48,133 @@ export class EmailService {
   private resend: Resend;
   private readonly logger = new Logger(EmailService.name);
 
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    private emailTemplateRenderer: EmailTemplateRendererService,
+  ) {
     this.resend = new Resend(process.env.RESEND_API_KEY);
+  }
+
+  private readonly portalUrl =
+    process.env.FRONTEND_URL || 'https://shifthappens.vercel.app';
+
+  private async sendTemplateEmail(
+    templateKey: string,
+    to: string,
+    data: Record<string, any>,
+  ): Promise<{
+    data: { id: string; subject: string; templateVersion: number } | null;
+    error: Error | null;
+  }> {
+    const rendered = await this.emailTemplateRenderer.render(templateKey, data);
+
+    const result = await this.resend.emails.send({
+      from: 'Shift Happens <info@shifthappens.curisrx.ca>',
+      to: [to],
+      subject: rendered.subject,
+      html: rendered.html,
+      text: rendered.text,
+    });
+
+    return {
+      data: result.data
+        ? {
+            id: result.data.id,
+            subject: rendered.subject,
+            templateVersion: rendered.templateVersion,
+          }
+        : null,
+      error: result.error,
+    };
+  }
+
+  private async sendTemplateBatchEmail(
+    templateKey: string,
+    emails: string[],
+    data: Record<string, any>,
+  ): Promise<{
+    data: CreateBatchSuccessResponse<CreateBatchRequestOptions> | null;
+    error: Error | null;
+    subject: string;
+    templateVersion: number;
+  }> {
+    const rendered = await this.emailTemplateRenderer.render(templateKey, data);
+
+    const batchEmails = emails.map((email) => ({
+      from: 'Shift Happens <info@shifthappens.curisrx.ca>',
+      to: [email],
+      subject: rendered.subject,
+      html: rendered.html,
+      text: rendered.text,
+    }));
+
+    const result = await this.resend.batch.send(batchEmails);
+    return {
+      data: result.data,
+      error: result.error,
+      subject: rendered.subject,
+      templateVersion: rendered.templateVersion,
+    };
+  }
+
+  private async logSingleEmailResult(params: {
+    to: string;
+    templateName: string;
+    subject: string;
+    status: 'sent' | 'failed';
+    providerMessageId?: string;
+    templateVersion?: number;
+    error?: unknown;
+  }) {
+    try {
+      await this.logEmail({
+        to: params.to,
+        templateName: params.templateName,
+        subject: params.subject,
+        status: params.status,
+        providerMessageId: params.providerMessageId,
+        templateVersion: params.templateVersion,
+        errorMessage: params.error ? getErrorMessage(params.error) : undefined,
+      });
+    } catch (dbError) {
+      this.logger.error(
+        'Failed to log single email to database',
+        (dbError as Error).stack,
+      );
+    }
+  }
+
+  private async logBatchEmailResult(params: {
+    emails: string[];
+    templateName: string;
+    subject: string;
+    status: 'sent' | 'failed';
+    providerMessageIds?: string[];
+    templateVersion?: number;
+    error?: unknown;
+  }) {
+    try {
+      await Promise.all(
+        params.emails.map((to, index) =>
+          this.logEmail({
+            to,
+            templateName: params.templateName,
+            subject: params.subject,
+            status: params.status,
+            providerMessageId: params.providerMessageIds?.[index],
+            templateVersion: params.templateVersion,
+            errorMessage: params.error
+              ? getErrorMessage(params.error)
+              : undefined,
+          }),
+        ),
+      );
+    } catch (dbError) {
+      this.logger.error(
+        'Failed to log batch emails to database',
+        (dbError as Error).stack,
+      );
+    }
   }
 
   //Send this email to a pharmacist when admin or manager creates or updates a single shift and it is freshly assigned to a pharmacist
@@ -52,62 +182,49 @@ export class EmailService {
     to: string,
     shift: ShiftWithCompanyAddress,
   ) {
+    if (!to) return;
+
     const templateName = 'shift_assigned';
-    const subject = `Shift Assigned at ${shift.company.name}`;
 
-    const shiftDate = formatDate(shift.startTime, shift.company.timezone);
-    const startTime = formatTime(shift.startTime, shift.company.timezone);
-    const endTime = formatTime(shift.endTime, shift.company.timezone);
-
-    const htmlContent = `<p>Hi ${shift?.pharmacist?.user?.firstName},</p>
-                              <p>This email confirms that you have been assigned a shift at <strong>${shift.company.name}</strong></p>
-                              <p><strong>Shift Details</strong><br>
-                              Location: <strong>${shift.company.name}</strong><br>
-                              Date: <strong>${shiftDate}</strong><br>
-                              Time: <strong>${startTime} - ${endTime}</strong><br>
-                              Notes: ${shift.title}<br>
-                              ${shift.description}</p>
-                              <a href="${generateGCalLink(shift)}">
-                              Click here to add shift
-                              to Google Calendar</a>
-                              <p>We’ll reach out <strong>24 hours before your shift</strong> with your pharmacy access codes and login details.<br>
-                              Once you get to the store, you’ll find a <strong>location-specific Pharmacist Relief Binder</strong> with<br>
-                              guidance on workflows, procedures, and key contacts to help your shift run smoothly.</p>
-                              <p>If you have any questions or concerns, please reach out to the Pharmacy manager. You will find<br>
-                              the contact information located in the accepted shift on the portal.<br> 
-                              <a href="https://shifthappens.vercel.app/">Click here to log in</a></p>
-                              <p>Thank you for supporting our pharmacy network.</p>
-                              <p>Cheers,<br>
-                              CurisRx Pharmacy<br>
-                              Pharm Drugstore</p>`;
+    const emailData = {
+      pharmacistFirstName: shift?.pharmacist?.user?.firstName,
+      companyName: shift.company.name,
+      shiftDate: formatDate(shift.startTime, shift.company.timezone),
+      startTime: formatTime(shift.startTime, shift.company.timezone),
+      endTime: formatTime(shift.endTime, shift.company.timezone),
+      shiftTitle: shift.title || 'N/A',
+      shiftDescription: shift.description || '',
+      gcalLink: generateGCalLink(shift, this.portalUrl),
+      portalUrl: this.portalUrl,
+    };
 
     try {
-      const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      });
+      const { data, error } = await this.sendTemplateEmail(
+        'shift_assigned',
+        to,
+        emailData,
+      );
 
       if (error) throw new Error(JSON.stringify(error));
 
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'sent',
         templateName,
-        providerMessageId: data.id,
+        subject: data?.subject || 'Shift Assigned',
+        status: 'sent',
+        providerMessageId: data!.id,
+        templateVersion: data?.templateVersion,
       });
 
       this.logger.log('Email sent successfully');
       return data;
     } catch (error) {
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'failed',
         templateName,
-        errorMessage: getErrorMessage(error),
+        subject: 'Shift Assigned',
+        status: 'failed',
+        error,
       });
       this.logger.error(
         'Unexpected error sending email',
@@ -120,60 +237,46 @@ export class EmailService {
   //Send this email to a pharmacist that has manually taken a shift
   async emailPharmacistShiftTaken(to: string, shift: ShiftWithCompanyAddress) {
     const templateName = 'shift_taken';
-    const subject = `New Shift: Shift Confirmed at ${shift.company.name}`;
 
-    const shiftDate = formatDate(shift.startTime, shift.company.timezone);
-    const startTime = formatTime(shift.startTime, shift.company.timezone);
-    const endTime = formatTime(shift.endTime, shift.company.timezone);
-
-    const htmlContent = `<p>Hi ${shift?.pharmacist?.user?.firstName},</p>
-                              <p>This email confirms that you have successfully accepted a shift at <strong>${shift.company.name}</strong></p>
-                              <p><strong>Shift Details</strong><br>
-                              Location: <strong>${shift.company.name}</strong><br>
-                              Date: <strong>${shiftDate}</strong><br>
-                              Time: <strong>${startTime} - ${endTime}</strong><br>
-                              Notes: ${shift.title}<br>
-                              ${shift.description}</p>
-                              <a href="${generateGCalLink(shift)}">
-                              Click here to add shift to Google Calendar</a>
-                              <p>We’ll reach out <strong>24 hours before your shift</strong> with your pharmacy access codes and login details.<br>
-                              Once you get to the store, you’ll find a <strong>location-specific Pharmacist Relief Binder</strong> with<br>
-                              guidance on workflows, procedures, and key contacts to help your shift run smoothly.</p>
-                              <p>If you have any questions or concerns, please reach out to the Pharmacy manager. You will find<br>
-                              the contact information located in the accepted shift on the portal.<br> 
-                              <a href="https://shifthappens.vercel.app/">Click here to log in</a></p>
-                              <p>Thank you for supporting our pharmacy network.</p>
-                              <p>Cheers,<br>
-                              CurisRx Pharmacy<br>
-                              Pharm Drugstore</p>`;
+    const emailData = {
+      pharmacistFirstName: shift?.pharmacist?.user?.firstName,
+      companyName: shift.company.name,
+      shiftDate: formatDate(shift.startTime, shift.company.timezone),
+      startTime: formatTime(shift.startTime, shift.company.timezone),
+      endTime: formatTime(shift.endTime, shift.company.timezone),
+      shiftTitle: shift.title || 'N/A',
+      shiftDescription: shift.description || '',
+      gcalLink: generateGCalLink(shift, this.portalUrl),
+      portalUrl: this.portalUrl,
+    };
 
     try {
-      const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      });
+      const { data, error } = await this.sendTemplateEmail(
+        templateName,
+        to,
+        emailData,
+      );
 
       if (error) throw new Error(JSON.stringify(error));
 
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'sent',
         templateName,
-        providerMessageId: data.id,
+        subject: data?.subject || 'Shift Taken',
+        status: 'sent',
+        providerMessageId: data!.id,
+        templateVersion: data?.templateVersion,
       });
 
       this.logger.log('Email sent successfully');
       return data;
     } catch (error) {
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'failed',
         templateName,
-        errorMessage: getErrorMessage(error),
+        subject: 'Shift Taken',
+        status: 'failed',
+        error,
       });
       this.logger.error(
         'Unexpected error sending email',
@@ -190,64 +293,48 @@ export class EmailService {
     pharmacistName: string,
   ) {
     const templateName = 'notify_shift_taken';
-    const subject = `New Shift Assigned at ${shift.company.name}`;
 
-    const shiftDate = formatDate(shift.startTime, shift.company.timezone);
-    const startTime = formatTime(shift.startTime, shift.company.timezone);
-    const endTime = formatTime(shift.endTime, shift.company.timezone);
-
-    const htmlContent = `<p>A pharmacist has taken a shift at <strong>${shift.company.name}</strong><br>
-                                Pharmacist name: <strong>${pharmacistName}</strong></p>
-                              <p>Shift Information<br>
-                              Date: <strong>${shiftDate}</strong><br>
-                              From: <strong>${startTime}</strong><br>
-                              To: <strong>${endTime}</strong><br>
-                              Notes: ${shift.title}<br>
-                              ${shift.description}</p>
-                              <p>To view all the details go to
-                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Cheers,<br>
-                              CurisRx Pharmacy<br>
-                              Pharm Drugstore</p>`;
+    const emailData = {
+      companyName: shift.company.name,
+      pharmacistName: pharmacistName,
+      shiftDate: formatDate(shift.startTime, shift.company.timezone),
+      startTime: formatTime(shift.startTime, shift.company.timezone),
+      endTime: formatTime(shift.endTime, shift.company.timezone),
+      shiftTitle: shift.title || 'N/A',
+      shiftDescription: shift.description || '',
+      portalUrl: this.portalUrl,
+    };
 
     try {
-      const batchEmails = managersEmails.map((email) => ({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [email],
-        subject: subject,
-        html: htmlContent,
-      }));
-
-      const { data, error } = await this.resend.batch.send(batchEmails);
+      const { data, error } = await this.sendTemplateBatchEmail(
+        'notify_shift_taken',
+        managersEmails,
+        emailData,
+      );
 
       if (error) throw new Error(JSON.stringify(error));
 
-      await Promise.all(
-        managersEmails.map((to, index) =>
-          this.logEmail({
-            to,
-            subject,
-            status: 'sent',
-            templateName,
-            providerMessageId: data?.data[index]?.id,
-          }),
-        ),
-      );
+      const providerMessageIds = data?.data?.map((d) => d.id) || [];
+
+      await this.logBatchEmailResult({
+        emails: managersEmails,
+        templateName,
+        subject: data?.subject || 'New Shift Assigned',
+        status: 'sent',
+        providerMessageIds,
+        templateVersion: data?.templateVersion,
+      });
 
       this.logger.log('Email sent successfully');
       return data;
     } catch (error) {
-      await Promise.all(
-        managersEmails.map((to) =>
-          this.logEmail({
-            to,
-            subject,
-            status: 'failed',
-            templateName,
-            errorMessage: getErrorMessage(error),
-          }),
-        ),
-      );
+      await this.logBatchEmailResult({
+        emails: managersEmails,
+        templateName,
+        subject: 'New Shift Assigned',
+        status: 'failed',
+        error,
+      });
       this.logger.error(
         'Unexpected error sending email',
         (error as Error).stack,
@@ -263,77 +350,65 @@ export class EmailService {
     shiftsDates: string[],
   ) {
     const templateName = 'multiple_shifts_assigned';
-    const subject = `Multiple Shifts Assigned at ${shift.company.name}`;
 
     const startTime = formatTime(shift.startTime, shift.company.timezone);
     const endTime = formatTime(shift.endTime, shift.company.timezone);
 
-    const generateHtmlContent = (): string => {
-      const shiftListHtml = shiftsDates
-        .map((dateStr) => {
-          const shiftDate = new Date(dateStr).toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-          });
+    const shifts = shiftsDates.map((dateStr) => {
+      const shiftDate = new Date(dateStr).toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        timeZone: shift.company.timezone,
+      });
+      return {
+        shiftDate,
+        startTime,
+        endTime,
+        title: shift.title || 'N/A',
+        description: shift.description || '',
+        gcalLink: generateGCalLinkForMultipleDates(
+          shift,
+          dateStr,
+          this.portalUrl,
+        ),
+      };
+    });
 
-          return `
-        <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #f44336; background: #fafafa;">
-          <p style="margin: 0;">Date: <strong>${shiftDate}</strong></p>
-          <p style="margin: 0;">Time: <strong>${startTime} - ${endTime}</strong></p>
-          <p style="margin: 0;">Notes: ${shift.title || 'N/A'}</p>
-          <p style="margin: 0;">${shift.description}</p>
-          <a href="${generateGCalLinkForMultipleDates(shift, dateStr)}">
-          Click here to add shift
-          to Google Calendar</a>
-        </div>
-      `;
-        })
-        .join('');
-
-      return `<p>Hi ${shift?.pharmacist?.user?.firstName},</p>
-                <p>This email confirms that you have been assigned multiple shifts at <strong>${shift.company.name}</strong></p>
-                <p><strong>Assigned Shifts Details</strong><br>
-                ${shiftListHtml}
-                <p>We’ll reach out <strong>24 hours before your shifts</strong> with your pharmacy access codes and login details.<br>
-                Once you get to the store, you’ll find a <strong>location-specific Pharmacist Relief Binder</strong> with<br>
-                guidance on workflows, procedures, and key contacts to help your shift run smoothly.</p>
-                <p>If you have any questions or concerns, please reach out to the Pharmacy manager. You will find<br>
-                the contact information located in the accepted shift on the portal.<br> 
-                <a href="https://shifthappens.vercel.app/">Click here to log in</a></p>
-                <p>Thank you for supporting our pharmacy network.</p>
-                <p>Cheers,<br>
-                CurisRx Pharmacy<br>
-                Pharm Drugstore</p>`;
+    const emailData = {
+      pharmacistFirstName: shift?.pharmacist?.user?.firstName,
+      companyName: shift.company.name,
+      shifts,
+      portalUrl: this.portalUrl,
     };
 
     try {
-      const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [to],
-        subject: subject,
-        html: generateHtmlContent(),
-      });
+      const { data, error } = await this.sendTemplateEmail(
+        templateName,
+        to,
+        emailData,
+      );
 
       if (error) throw new Error(JSON.stringify(error));
 
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'sent',
         templateName,
-        providerMessageId: data.id,
+        subject: data?.subject || 'Multiple Shifts Assigned',
+        status: 'sent',
+        providerMessageId: data!.id,
+        templateVersion: data?.templateVersion,
       });
 
       this.logger.log('Email sent successfully');
       return data;
     } catch (error) {
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'failed',
         templateName,
-        errorMessage: getErrorMessage(error),
+        subject: 'Multiple Shifts Assigned',
+        status: 'failed',
+        error,
       });
       this.logger.error(
         'Unexpected error sending email',
@@ -346,52 +421,44 @@ export class EmailService {
   //Send this email manually by admin when wants to notify pharmacists about a specific open available shift
   async emailPharmacistSpecificShiftOpen(to: string, shift: ShiftWithCompany) {
     const templateName = 'open_shift_manual_notification';
-    const subject = `Shift Open at ${shift.company.name}`;
 
-    const shiftDate = formatDate(shift.startTime, shift.company.timezone);
-    const startTime = formatTime(shift.startTime, shift.company.timezone);
-    const endTime = formatTime(shift.endTime, shift.company.timezone);
-
-    const htmlContent = `<p>There is an open shift at <strong>${shift.company.name}</strong>.</p>
-                              <h3>Shift Information</h3>
-                              <p>Date: <strong>${shiftDate}</strong><br>
-                              From: <strong>${startTime}</strong><br>
-                              To: <strong>${endTime}</strong><br>
-                              Notes: ${shift.title}<br>
-                              ${shift.description}</p>
-                              <p>If you would like to take this shift go to
-                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Cheers,<br>
-                              CurisRx Pharmacy<br>
-                              Pharm Drugstore</p>`;
+    const emailData = {
+      companyName: shift.company.name,
+      shiftDate: formatDate(shift.startTime, shift.company.timezone),
+      startTime: formatTime(shift.startTime, shift.company.timezone),
+      endTime: formatTime(shift.endTime, shift.company.timezone),
+      shiftTitle: shift.title || '',
+      shiftDescription: shift.description || '',
+      portalUrl: this.portalUrl,
+    };
 
     try {
-      const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      });
+      const { data, error } = await this.sendTemplateEmail(
+        templateName,
+        to,
+        emailData,
+      );
 
       if (error) throw new Error(JSON.stringify(error));
 
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'sent',
         templateName,
-        providerMessageId: data.id,
+        subject: data?.subject || 'Shift Open',
+        status: 'sent',
+        providerMessageId: data!.id,
+        templateVersion: data?.templateVersion,
       });
 
       this.logger.log('Email sent successfully');
       return data;
     } catch (error) {
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'failed',
         templateName,
-        errorMessage: getErrorMessage(error),
+        subject: 'Shift Open',
+        status: 'failed',
+        error,
       });
 
       this.logger.error(
@@ -405,44 +472,39 @@ export class EmailService {
   //Send this email manually by admin when wants to notify pharmacists about multiple open available shifts
   async emailPharmacistMultipleShiftsOpen(to: string, firstName?: string) {
     const templateName = 'multiple_open_shifts_manual_notification';
-    const subject = `Open shifts - Now Available`;
 
-    const htmlContent = `<p>Hi ${firstName},</p>
-                              <p>Open shifts are now available!</p>
-                              <p>Visit your dashboard to view details and claim shifts!<br>
-                              <a href="https://shifthappens.vercel.app/">Click here</a>  to view available shifts and add to your calendar</p>
-                              <p>Any questions about accepting shifts, please reach out!</p>
-                              <p>Cheers,<br>
-                              CurisRx Pharmacy<br>
-                              Pharm Drugstore</p>`;
+    const emailData = {
+      pharmacistFirstName: firstName || '',
+      portalUrl: this.portalUrl,
+    };
 
     try {
-      const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      });
+      const { data, error } = await this.sendTemplateEmail(
+        templateName,
+        to,
+        emailData,
+      );
 
       if (error) throw new Error(JSON.stringify(error));
 
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'sent',
         templateName,
-        providerMessageId: data.id,
+        subject: data?.subject || 'Open Shifts Available',
+        status: 'sent',
+        providerMessageId: data!.id,
+        templateVersion: data?.templateVersion,
       });
 
       this.logger.log('Email sent successfully');
       return data;
     } catch (error) {
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'failed',
         templateName,
-        errorMessage: getErrorMessage(error),
+        subject: 'Open Shifts Available',
+        status: 'failed',
+        error,
       });
 
       this.logger.error(
@@ -459,55 +521,45 @@ export class EmailService {
     shift: ShiftWithCompanyAddress,
   ) {
     const templateName = 'taken_shift_updated';
-    const subject = `Shift Updated at ${shift.company.name}`;
 
-    const shiftDate = formatDate(shift.startTime, shift.company.timezone);
-    const startTime = formatTime(shift.startTime, shift.company.timezone);
-    const endTime = formatTime(shift.endTime, shift.company.timezone);
-
-    const htmlContent = `<p>Your assigned shift at <strong>${shift.company.name}</strong> was updated.</p>
-                              <p>Updated Shift Information<br>
-                              Date: <strong>${shiftDate}</strong><br>
-                              From: <strong>${startTime}</strong><br>
-                              To: <strong>${endTime}</strong><br>
-                              Notes: ${shift.title}<br>
-                              ${shift.description}</p>
-                              <a href="${generateGCalLink(shift)}">
-                              Click here to add shift
-                              to Google Calendar</a>
-                              <p>To view all the details go to
-                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Cheers,<br>
-                              CurisRx Pharmacy<br>
-                              Pharm Drugstore</p>`;
+    const emailData = {
+      companyName: shift.company.name,
+      shiftDate: formatDate(shift.startTime, shift.company.timezone),
+      startTime: formatTime(shift.startTime, shift.company.timezone),
+      endTime: formatTime(shift.endTime, shift.company.timezone),
+      shiftTitle: shift.title || 'N/A',
+      shiftDescription: shift.description || '',
+      gcalLink: generateGCalLink(shift, this.portalUrl),
+      portalUrl: this.portalUrl,
+    };
 
     try {
-      const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      });
+      const { data, error } = await this.sendTemplateEmail(
+        templateName,
+        to,
+        emailData,
+      );
 
       if (error) throw new Error(JSON.stringify(error));
 
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'sent',
         templateName,
-        providerMessageId: data.id,
+        subject: data?.subject || 'Shift Updated',
+        status: 'sent',
+        providerMessageId: data!.id,
+        templateVersion: data?.templateVersion,
       });
 
       this.logger.log('Email sent successfully');
       return data;
     } catch (error) {
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'failed',
         templateName,
-        errorMessage: getErrorMessage(error),
+        subject: 'Shift Updated',
+        status: 'failed',
+        error,
       });
       this.logger.error(
         'Unexpected error sending email',
@@ -523,69 +575,50 @@ export class EmailService {
     cancellationReason: string,
   ) {
     const templateName = 'request_shift_cancellation';
-    const subject = `Request to cancel shift at ${shift.company.name}`;
 
-    const shiftDate = formatDate(shift.startTime, shift.company.timezone);
-    const startTime = formatTime(shift.startTime, shift.company.timezone);
-    const endTime = formatTime(shift.endTime, shift.company.timezone);
-
-    const htmlContent = `<p>A pharmacist wants to cancel a shift at <strong>${shift.company.name}</strong>.</p>
-                              <h3>Shift Information</h3>
-                              <p>Date: <strong>${shiftDate}</strong><br>
-                              From: <strong>${startTime}</strong><br>
-                              To: <strong>${endTime}</strong><br>
-                              Notes: ${shift.title}<br>
-                              ${shift.description}</p>
-                              <h3>Pharmacist Information</h3>
-                              <p>Name: <strong>${shift?.pharmacist?.user.firstName} ${shift?.pharmacist?.user.lastName}</strong><br>
-                              email: <strong>${shift?.pharmacist?.user.email}</strong></p>
-                              <h3>Cancel Reason</h3>
-                              <p>Reason: <strong>${cancellationReason}</strong><br>
-                              <p>To review this request, please log in to
-                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a> and
-                              process the request.</p>
-                              <p>Cheers,<br>
-                              CurisRx Pharmacy<br>
-                              Pharm Drugstore</p>`;
+    const emailData = {
+      companyName: shift.company.name,
+      shiftDate: formatDate(shift.startTime, shift.company.timezone),
+      startTime: formatTime(shift.startTime, shift.company.timezone),
+      endTime: formatTime(shift.endTime, shift.company.timezone),
+      shiftTitle: shift.title || '',
+      shiftDescription: shift.description || '',
+      pharmacistName: `${shift?.pharmacist?.user.firstName} ${shift?.pharmacist?.user.lastName}`,
+      pharmacistEmail: shift?.pharmacist?.user.email || '',
+      cancellationReason,
+      portalUrl: this.portalUrl,
+    };
 
     try {
-      const batchEmails = adminAndContactPersonEmails.map((email) => ({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [email],
-        subject: subject,
-        html: htmlContent,
-      }));
-
-      const { data, error } = await this.resend.batch.send(batchEmails);
+      const { data, error } = await this.sendTemplateBatchEmail(
+        templateName,
+        adminAndContactPersonEmails,
+        emailData,
+      );
 
       if (error) throw new Error(JSON.stringify(error));
 
-      await Promise.all(
-        adminAndContactPersonEmails.map((to, index) =>
-          this.logEmail({
-            to,
-            subject,
-            status: 'sent',
-            templateName,
-            providerMessageId: data?.data[index]?.id,
-          }),
-        ),
-      );
+      const providerMessageIds = data?.data?.map((d) => d.id) || [];
+
+      await this.logBatchEmailResult({
+        emails: adminAndContactPersonEmails,
+        templateName,
+        subject: data?.subject || 'Shift Cancellation Request',
+        status: 'sent',
+        providerMessageIds,
+        templateVersion: data?.templateVersion,
+      });
 
       this.logger.log('Email sent successfully');
       return data;
     } catch (error) {
-      await Promise.all(
-        adminAndContactPersonEmails.map((to) =>
-          this.logEmail({
-            to,
-            subject,
-            status: 'failed',
-            templateName,
-            errorMessage: getErrorMessage(error),
-          }),
-        ),
-      );
+      await this.logBatchEmailResult({
+        emails: adminAndContactPersonEmails,
+        templateName,
+        subject: 'Shift Cancellation Request',
+        status: 'failed',
+        error,
+      });
       this.logger.error(
         'Unexpected error sending email',
         (error as Error).stack,
@@ -597,52 +630,44 @@ export class EmailService {
   //Send this email when an assigned shift changes pharmacistId or is deleted
   async emailPharmacistShiftCancelled(to: string, shift: ShiftWithCompany) {
     const templateName = 'taken_shift_cancelled';
-    const subject = `Shift Cancelled at ${shift.company.name}`;
 
-    const shiftDate = formatDate(shift.startTime, shift.company.timezone);
-    const startTime = formatTime(shift.startTime, shift.company.timezone);
-    const endTime = formatTime(shift.endTime, shift.company.timezone);
-
-    const htmlContent = `<p>You no longer have a shift at <strong>${shift.company.name}</strong></p>
-                              <p>Cancelled Shift Information<br>
-                              Date: <strong>${shiftDate}</strong><br>
-                              From: <strong>${startTime}</strong><br>
-                              To: <strong>${endTime}</strong><br>
-                              Notes: ${shift.title}<br>
-                              ${shift.description}</p>
-                              <p>To view all the details go to
-                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Cheers,<br>
-                              CurisRx Pharmacy<br>
-                              Pharm Drugstore</p>`;
+    const emailData = {
+      companyName: shift.company.name,
+      shiftDate: formatDate(shift.startTime, shift.company.timezone),
+      startTime: formatTime(shift.startTime, shift.company.timezone),
+      endTime: formatTime(shift.endTime, shift.company.timezone),
+      shiftTitle: shift.title || '',
+      shiftDescription: shift.description || '',
+      portalUrl: this.portalUrl,
+    };
 
     try {
-      const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      });
+      const { data, error } = await this.sendTemplateEmail(
+        templateName,
+        to,
+        emailData,
+      );
 
       if (error) throw new Error(JSON.stringify(error));
 
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'sent',
         templateName,
-        providerMessageId: data.id,
+        subject: data?.subject || 'Shift Cancelled',
+        status: 'sent',
+        providerMessageId: data!.id,
+        templateVersion: data?.templateVersion,
       });
 
       this.logger.log('Email sent successfully');
       return data;
     } catch (error) {
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'failed',
         templateName,
-        errorMessage: getErrorMessage(error),
+        subject: 'Shift Cancelled',
+        status: 'failed',
+        error,
       });
       this.logger.error(
         'Unexpected error sending email',
@@ -659,7 +684,6 @@ export class EmailService {
   ) {
     const templateName = 'shift_series_assigned';
     const companyName = shifts[0]?.company?.name || 'pharmacy';
-    const subject = `Multipe Shifts Assigned at ${companyName}`;
 
     const shiftsByEmail = shifts.reduce(
       (acc, shift) => {
@@ -673,82 +697,62 @@ export class EmailService {
       {} as Record<string, ShiftWithCompanyAddress[]>,
     );
 
-    const generateHtmlContent = (email: string): string => {
-      const userShifts = shiftsByEmail[email] || [];
+    try {
+      const emailsToProcess = Object.keys(shiftsByEmail);
 
-      const shiftListHtml = userShifts
-        .map((shift) => {
+      if (emailsToProcess.length === 0) return;
+
+      for (const email of emailsToProcess) {
+        const userShifts = shiftsByEmail[email] || [];
+
+        const shifts = userShifts.map((shift) => {
           const shiftDate = formatDate(shift.startTime, shift.company.timezone);
           const startTime = formatTime(shift.startTime, shift.company.timezone);
           const endTime = formatTime(shift.endTime, shift.company.timezone);
+          return {
+            shiftDate,
+            startTime,
+            endTime,
+            title: shift.title || 'N/A',
+            description: shift.description || '',
+            gcalLink: generateGCalLink(shift, this.portalUrl),
+          };
+        });
 
-          return `
-        <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #f44336; background: #fafafa;">
-          <p style="margin: 0;">Date: <strong>${shiftDate}</strong></p>
-          <p style="margin: 0;">Time: <strong>${startTime} - ${endTime}</strong></p>
-          <p style="margin: 0;">Notes: ${shift.title || 'N/A'}</p>
-          <p style="margin: 0;">${shift.description}</p>
-          <a href="${generateGCalLink(shift)}">
-          Click here to add shift
-          to Google Calendar</a>
-        </div>
-      `;
-        })
-        .join('');
+        const emailData = {
+          companyName,
+          shifts,
+          portalUrl: this.portalUrl,
+        };
 
-      return `<p>You have been assigned multiple shifts at <strong>${companyName}</strong>.</p>
-              <p>Assigned Shifts Information<br>
-              ${shiftListHtml}
-              <p>We’ll reach out <strong>24 hours before your shift</strong> with your pharmacy access codes and login details.<br>
-              Once you get to the store, you’ll find a <strong>location-specific Pharmacist Relief Binder</strong> with<br>
-              guidance on workflows, procedures, and key contacts to help your shift run smoothly.</p>
-              <p>If you have any questions or concerns, please reach out to the Pharmacy manager. You will find<br>
-              the contact information located in the accepted shift on the portal.<br> 
-              <a href="https://shifthappens.vercel.app/">Click here to log in</a></p>
-              <p>Thank you for supporting our pharmacy network.</p>
-              <p>Cheers,<br>
-              CurisRx Pharmacy<br>
-              Pharm Drugstore</p>`;
-    };
+        const { data, error } = await this.sendTemplateEmail(
+          templateName,
+          email,
+          emailData,
+        );
 
-    try {
-      const emailsToProcess = Object.keys(shiftsByEmail);
-      const batchEmails = emailsToProcess.map((email) => ({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [email],
-        subject: subject,
-        html: generateHtmlContent(email),
-      }));
+        if (error) throw new Error(JSON.stringify(error));
 
-      if (batchEmails.length === 0) return;
-
-      const { data, error } = await this.resend.batch.send(batchEmails);
-
-      if (error) throw new Error(JSON.stringify(error));
-
-      await Promise.all(
-        emailsToProcess.map((to, index) =>
-          this.logEmail({
-            to,
-            subject,
-            status: 'sent',
-            templateName,
-            providerMessageId: data?.data?.[index]?.id,
-          }),
-        ),
-      );
+        await this.logSingleEmailResult({
+          to: email,
+          templateName,
+          subject: data?.subject || 'Multiple Shifts Assigned',
+          status: 'sent',
+          providerMessageId: data!.id,
+          templateVersion: data?.templateVersion,
+        });
+      }
 
       this.logger.log('Emails sent successfully');
-      return data;
     } catch (error) {
       await Promise.all(
         pharmacistsEmails.map((to) =>
-          this.logEmail({
+          this.logSingleEmailResult({
             to,
-            subject,
-            status: 'failed',
             templateName,
-            errorMessage: getErrorMessage(error),
+            subject: 'Multiple Shifts Assigned',
+            status: 'failed',
+            error,
           }),
         ),
       );
@@ -767,7 +771,6 @@ export class EmailService {
   ) {
     const templateName = 'taken_shift_series_updated';
     const companyName = shifts[0]?.company?.name || 'pharmacy';
-    const subject = `Multipe Shifts Updated at ${companyName}`;
 
     const shiftsByEmail = shifts.reduce(
       (acc, shift) => {
@@ -781,74 +784,61 @@ export class EmailService {
       {} as Record<string, ShiftWithPharmacist[]>,
     );
 
-    const generateHtmlContent = (email: string): string => {
-      const userShifts = shiftsByEmail[email] || [];
+    try {
+      const emailsToProcess = Object.keys(shiftsByEmail);
 
-      const shiftListHtml = userShifts
-        .map((shift) => {
+      if (emailsToProcess.length === 0) return;
+
+      for (const email of emailsToProcess) {
+        const userShifts = shiftsByEmail[email] || [];
+
+        const shifts = userShifts.map((shift) => {
           const shiftDate = formatDate(shift.startTime, shift.company.timezone);
           const startTime = formatTime(shift.startTime, shift.company.timezone);
           const endTime = formatTime(shift.endTime, shift.company.timezone);
+          return {
+            shiftDate,
+            startTime,
+            endTime,
+            title: shift.title || 'N/A',
+            description: shift.description || '',
+          };
+        });
 
-          return `
-        <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #f44336; background: #fafafa;">
-          <p style="margin: 0;">Date: <strong>${shiftDate}</strong></p>
-          <p style="margin: 0;">Time: <strong>${startTime} - ${endTime}</strong></p>
-          <p style="margin: 0;">Notes: ${shift.title || 'N/A'}</p>
-          <p style="margin: 0;">${shift.description}</p>
-        </div>
-      `;
-        })
-        .join('');
+        const emailData = {
+          companyName,
+          shifts,
+          portalUrl: this.portalUrl,
+        };
 
-      return `<p>Your assigned shifts at  <strong>${companyName}</strong> have been updated.</p>
-              <p>Updated Shifts Information<br>
-              ${shiftListHtml}
-              <p>To view your updated schedule, visit 
-              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-              <p>Cheers,<br>
-              CurisRx Pharmacy<br>
-              Pharm Drugstore</p>`;
-    };
+        const { data, error } = await this.sendTemplateEmail(
+          templateName,
+          email,
+          emailData,
+        );
 
-    try {
-      const emailsToProcess = Object.keys(shiftsByEmail);
-      const batchEmails = emailsToProcess.map((email) => ({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [email],
-        subject: subject,
-        html: generateHtmlContent(email),
-      }));
+        if (error) throw new Error(JSON.stringify(error));
 
-      if (batchEmails.length === 0) return;
-
-      const { data, error } = await this.resend.batch.send(batchEmails);
-
-      if (error) throw new Error(JSON.stringify(error));
-
-      await Promise.all(
-        emailsToProcess.map((to, index) =>
-          this.logEmail({
-            to,
-            subject,
-            status: 'sent',
-            templateName,
-            providerMessageId: data?.data?.[index]?.id,
-          }),
-        ),
-      );
+        await this.logSingleEmailResult({
+          to: email,
+          templateName,
+          subject: data?.subject || 'Multiple Shifts Updated',
+          status: 'sent',
+          providerMessageId: data!.id,
+          templateVersion: data?.templateVersion,
+        });
+      }
 
       this.logger.log('Emails sent successfully');
-      return data;
     } catch (error) {
       await Promise.all(
         pharmacistsEmails.map((to) =>
-          this.logEmail({
+          this.logSingleEmailResult({
             to,
-            subject,
-            status: 'failed',
             templateName,
-            errorMessage: getErrorMessage(error),
+            subject: 'Multiple Shifts Updated',
+            status: 'failed',
+            error,
           }),
         ),
       );
@@ -867,7 +857,6 @@ export class EmailService {
   ) {
     const templateName = 'taken_shift_series_cancelled';
     const companyName = shifts[0]?.company?.name || 'pharmacy';
-    const subject = `Multipe Shifts Cancelled at ${companyName}`;
 
     const shiftsByEmail = shifts.reduce(
       (acc, shift) => {
@@ -881,72 +870,60 @@ export class EmailService {
       {} as Record<string, ShiftWithPharmacist[]>,
     );
 
-    const generateHtmlContent = (email: string): string => {
-      const userShifts = shiftsByEmail[email] || [];
+    try {
+      const emailsToProcess = Object.keys(shiftsByEmail);
 
-      const shiftListHtml = userShifts
-        .map((shift) => {
+      if (emailsToProcess.length === 0) return;
+
+      for (const email of emailsToProcess) {
+        const userShifts = shiftsByEmail[email] || [];
+
+        const shifts = userShifts.map((shift) => {
           const shiftDate = formatDate(shift.startTime, shift.company.timezone);
           const startTime = formatTime(shift.startTime, shift.company.timezone);
           const endTime = formatTime(shift.endTime, shift.company.timezone);
+          return {
+            shiftDate,
+            startTime,
+            endTime,
+            title: shift.title || 'N/A',
+          };
+        });
 
-          return `
-        <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #f44336; background: #fafafa;">
-          <p style="margin: 0;">Date: <strong>${shiftDate}</strong></p>
-          <p style="margin: 0;">Time: <strong>${startTime} - ${endTime}</strong></p>
-          <p style="margin: 0;">Notes: ${shift.title || 'N/A'}</p>
-        </div>
-      `;
-        })
-        .join('');
+        const emailData = {
+          companyName,
+          shifts,
+          portalUrl: this.portalUrl,
+        };
 
-      return `<p>The following shifts at <strong>${companyName}</strong> have been cancelled.</p>
-              ${shiftListHtml}
-              <p>To view your updated schedule, visit 
-              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-              <p>Cheers,<br>
-              CurisRx Pharmacy<br>
-              Pharm Drugstore</p>`;
-    };
+        const { data, error } = await this.sendTemplateEmail(
+          templateName,
+          email,
+          emailData,
+        );
 
-    try {
-      const emailsToProcess = Object.keys(shiftsByEmail);
-      const batchEmails = emailsToProcess.map((email) => ({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [email],
-        subject: subject,
-        html: generateHtmlContent(email),
-      }));
+        if (error) throw new Error(JSON.stringify(error));
 
-      if (batchEmails.length === 0) return;
-
-      const { data, error } = await this.resend.batch.send(batchEmails);
-
-      if (error) throw new Error(JSON.stringify(error));
-
-      await Promise.all(
-        emailsToProcess.map((to, index) =>
-          this.logEmail({
-            to,
-            subject,
-            status: 'sent',
-            templateName,
-            providerMessageId: data?.data?.[index]?.id,
-          }),
-        ),
-      );
+        await this.logSingleEmailResult({
+          to: email,
+          templateName,
+          subject: data?.subject || 'Multiple Shifts Cancelled',
+          status: 'sent',
+          providerMessageId: data!.id,
+          templateVersion: data?.templateVersion,
+        });
+      }
 
       this.logger.log('Emails sent successfully');
-      return data;
     } catch (error) {
       await Promise.all(
         pharmacistsEmails.map((to) =>
-          this.logEmail({
+          this.logSingleEmailResult({
             to,
-            subject,
-            status: 'failed',
             templateName,
-            errorMessage: getErrorMessage(error),
+            subject: 'Multiple Shifts Cancelled',
+            status: 'failed',
+            error,
           }),
         ),
       );
@@ -964,53 +941,44 @@ export class EmailService {
     shift: ShiftWithCompany,
   ) {
     const templateName = 'cancel_request_rejected';
-    const subject = `Shift Cancel Request Rejected at ${shift.company.name}`;
 
-    const shiftDate = formatDate(shift.startTime, shift.company.timezone);
-    const startTime = formatTime(shift.startTime, shift.company.timezone);
-    const endTime = formatTime(shift.endTime, shift.company.timezone);
-
-    const htmlContent = `<p>Your shift cancellation request at <strong>${shift.company.name}</strong> has been rejected.</p>
-                          <p>Please be aware that you are still assigned for this shift.</p>
-                              <p>Shift Information<br>
-                              Date: <strong>${shiftDate}</strong><br>
-                              From: <strong>${startTime}</strong><br>
-                              To: <strong>${endTime}</strong><br>
-                              Notes: ${shift.title}<br>
-                              ${shift.description}</p>
-                              <p>To view all the details go to
-                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Cheers,<br>
-                              CurisRx Pharmacy<br>
-                              Pharm Drugstore</p>`;
+    const emailData = {
+      companyName: shift.company.name,
+      shiftDate: formatDate(shift.startTime, shift.company.timezone),
+      startTime: formatTime(shift.startTime, shift.company.timezone),
+      endTime: formatTime(shift.endTime, shift.company.timezone),
+      shiftTitle: shift.title || '',
+      shiftDescription: shift.description || '',
+      portalUrl: this.portalUrl,
+    };
 
     try {
-      const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      });
+      const { data, error } = await this.sendTemplateEmail(
+        templateName,
+        to,
+        emailData,
+      );
 
       if (error) throw new Error(JSON.stringify(error));
 
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'sent',
         templateName,
-        providerMessageId: data.id,
+        subject: data?.subject || 'Shift Cancel Request Rejected',
+        status: 'sent',
+        providerMessageId: data!.id,
+        templateVersion: data?.templateVersion,
       });
 
       this.logger.log('Email sent successfully');
       return data;
     } catch (error) {
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'failed',
         templateName,
-        errorMessage: getErrorMessage(error),
+        subject: 'Shift Cancel Request Rejected',
+        status: 'failed',
+        error,
       });
       this.logger.error(
         'Unexpected error sending email',
@@ -1026,53 +994,44 @@ export class EmailService {
     shift: ShiftWithCompany,
   ) {
     const templateName = 'cancel_request_approved';
-    const subject = `Shift Cancel Request Approved at ${shift.company.name}`;
 
-    const shiftDate = formatDate(shift.startTime, shift.company.timezone);
-    const startTime = formatTime(shift.startTime, shift.company.timezone);
-    const endTime = formatTime(shift.endTime, shift.company.timezone);
-
-    const htmlContent = `<p>Your shift cancellation request at <strong>${shift.company.name}</strong> has been approved.</p>
-                          <p>Please be aware that you are no longer assigned for this shift.</p>
-                              <p>Shift Information<br>
-                              Date: <strong>${shiftDate}</strong><br>
-                              From: <strong>${startTime}</strong><br>
-                              To: <strong>${endTime}</strong><br>
-                              Notes: ${shift.title}<br>
-                              ${shift.description}</p>
-                              <p>To view all the details go to
-                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Cheers,<br>
-                              CurisRx Pharmacy<br>
-                              Pharm Drugstore</p>`;
+    const emailData = {
+      companyName: shift.company.name,
+      shiftDate: formatDate(shift.startTime, shift.company.timezone),
+      startTime: formatTime(shift.startTime, shift.company.timezone),
+      endTime: formatTime(shift.endTime, shift.company.timezone),
+      shiftTitle: shift.title || '',
+      shiftDescription: shift.description || '',
+      portalUrl: this.portalUrl,
+    };
 
     try {
-      const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      });
+      const { data, error } = await this.sendTemplateEmail(
+        templateName,
+        to,
+        emailData,
+      );
 
       if (error) throw new Error(JSON.stringify(error));
 
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'sent',
         templateName,
-        providerMessageId: data.id,
+        subject: data?.subject || 'Shift Cancel Request Approved',
+        status: 'sent',
+        providerMessageId: data!.id,
+        templateVersion: data?.templateVersion,
       });
 
       this.logger.log('Email sent successfully');
       return data;
     } catch (error) {
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'failed',
         templateName,
-        errorMessage: getErrorMessage(error),
+        subject: 'Shift Cancel Request Approved',
+        status: 'failed',
+        error,
       });
       this.logger.error(
         'Unexpected error sending email',
@@ -1085,60 +1044,39 @@ export class EmailService {
   //Send this email when a new user is added to the system
   async emailNewUser(to: string, resetLink: string, firstName?: string) {
     const templateName = 'new_account_created';
-    const subject = `Your Account has been Created for Curis Pharmacy Relief Portal!`;
 
-    const htmlContent = `<p>Hi ${firstName},</p>
-                              <p>Welcome to Shift Happens! Your account has been successfully created. This portal will be <br>
-                              used to find open shifts, see accepted shifts, and have direct contact with any of the CurisRx & Pharm Drugstore<br>
-                              store managers!</p>
-                              <p>Click the button below to set your password and access your account:</p>
-                              <p style="text-align: left; margin: 30px 0;">
-                                <a href="${resetLink}" style="background-color: #ed2375; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;">
-                                  Set Your Password
-                                </a>
-                              </p>
-                              <p>Or copy and paste this link into your browser:</p>
-                              <p style="word-break: break-all; color: #666; font-size: 14px;">${resetLink}</p>
-                              <p>This link will expire in 1 hour.</p>
-                              <p><strong>If this is your first time logging in, we recommend taking a minute to:</strong></p>
-                              <ul>
-                                <li>Complete your profile</li>
-                                <li>Explore the dashboard</li>
-                                <li>Check out the calendar to accept your first shift</li>
-                              </ul>
-                              <p>If you have any questions, our team is here to help.</p>
-                              <p>Welcome aboard, we're excited to have you!<br>
-                              <p>Cheers,<br>
-                              CurisRx Pharmacy<br>
-                              Pharm Drugstore</p>`;
+    const emailData = {
+      firstName: firstName || '',
+      resetLink,
+    };
 
     try {
-      const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      });
+      const { data, error } = await this.sendTemplateEmail(
+        templateName,
+        to,
+        emailData,
+      );
 
       if (error) throw new Error(JSON.stringify(error));
 
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'sent',
         templateName,
-        providerMessageId: data.id,
+        subject: data?.subject || 'Account Created',
+        status: 'sent',
+        providerMessageId: data!.id,
+        templateVersion: data?.templateVersion,
       });
 
       this.logger.log('Email sent successfully');
       return data;
     } catch (error) {
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'failed',
         templateName,
-        errorMessage: getErrorMessage(error),
+        subject: 'Account Created',
+        status: 'failed',
+        error,
       });
       this.logger.error(
         'Unexpected error sending email',
@@ -1155,59 +1093,45 @@ export class EmailService {
     submittedByName: string,
   ) {
     const templateName = 'new_pharmacist_request';
-    const subject = `New request to add a pharmacist`;
 
-    const htmlContent = `<p>A new request to add a pharmacist has been received.</p>
-                              <h3>Request Information</h3>
-                              <p>Pharmacist Name: <strong>${pharmacistRequest.firstName} ${pharmacistRequest.lastName}</strong><br>
-                              Email: <strong>${pharmacistRequest.email}</strong><br>
-                              Submitted By: <strong>${submittedByName}</strong><br></p>
-                             
-                              <p>To review this request, please log in to
-                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a> and
-                              process the request.</p>
-                              <p>Cheers,<br>
-                              CurisRx Pharmacy<br>
-                              Pharm Drugstore</p>`;
+    const emailData = {
+      pharmacistFirstName: pharmacistRequest.firstName,
+      pharmacistLastName: pharmacistRequest.lastName,
+      pharmacistEmail: pharmacistRequest.email,
+      submittedByName,
+      portalUrl: this.portalUrl,
+    };
 
     try {
-      const batchEmails = adminEmails.map((email) => ({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [email],
-        subject: subject,
-        html: htmlContent,
-      }));
-
-      const { data, error } = await this.resend.batch.send(batchEmails);
+      const { data, error } = await this.sendTemplateBatchEmail(
+        templateName,
+        adminEmails,
+        emailData,
+      );
 
       if (error) throw new Error(JSON.stringify(error));
 
-      await Promise.all(
-        adminEmails.map((to, index) =>
-          this.logEmail({
-            to,
-            subject,
-            status: 'sent',
-            templateName,
-            providerMessageId: data?.data[index]?.id,
-          }),
-        ),
-      );
+      const providerMessageIds = data?.data?.map((d) => d.id) || [];
+
+      await this.logBatchEmailResult({
+        emails: adminEmails,
+        templateName,
+        subject: data?.subject || 'New Pharmacist Request',
+        status: 'sent',
+        providerMessageIds,
+        templateVersion: data?.templateVersion,
+      });
 
       this.logger.log('Email sent successfully');
       return data;
     } catch (error) {
-      await Promise.all(
-        adminEmails.map((to) =>
-          this.logEmail({
-            to,
-            subject,
-            status: 'failed',
-            templateName,
-            errorMessage: getErrorMessage(error),
-          }),
-        ),
-      );
+      await this.logBatchEmailResult({
+        emails: adminEmails,
+        templateName,
+        subject: 'New Pharmacist Request',
+        status: 'failed',
+        error,
+      });
       this.logger.error(
         'Unexpected error sending email',
         (error as Error).stack,
@@ -1222,47 +1146,41 @@ export class EmailService {
     pharmacistRequest: PharmacistRequest,
   ) {
     const templateName = 'pharmacist_request_approved';
-    const subject = `Your request to add a pharmacist has been approved`;
 
-    const htmlContent = `<p>Your request to add a pharmacist has been approved.</p>
-                          <p>The pharmacist has been added to the system.</p>
-                              <h3>Pharmacist Information</h3>
-                              <p>Pharmacist Name: <strong>${pharmacistRequest.firstName} ${pharmacistRequest.lastName}</strong><br>
-                              Email: <strong>${pharmacistRequest.email}</strong><br></p>
-
-                              <p>To view all the details go to
-                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Cheers,<br>
-                              CurisRx Pharmacy<br>
-                              Pharm Drugstore</p>`;
+    const emailData = {
+      pharmacistFirstName: pharmacistRequest.firstName,
+      pharmacistLastName: pharmacistRequest.lastName,
+      pharmacistEmail: pharmacistRequest.email,
+      portalUrl: this.portalUrl,
+    };
 
     try {
-      const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      });
+      const { data, error } = await this.sendTemplateEmail(
+        templateName,
+        to,
+        emailData,
+      );
 
       if (error) throw new Error(JSON.stringify(error));
 
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'sent',
         templateName,
-        providerMessageId: data.id,
+        subject: data?.subject || 'Pharmacist Request Approved',
+        status: 'sent',
+        providerMessageId: data!.id,
+        templateVersion: data?.templateVersion,
       });
 
       this.logger.log('Email sent successfully');
       return data;
     } catch (error) {
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'failed',
         templateName,
-        errorMessage: getErrorMessage(error),
+        subject: 'Pharmacist Request Approved',
+        status: 'failed',
+        error,
       });
       this.logger.error(
         'Unexpected error sending email',
@@ -1278,47 +1196,41 @@ export class EmailService {
     pharmacistRequest: PharmacistRequest,
   ) {
     const templateName = 'pharmacist_request_rejected';
-    const subject = `Your request to add a pharmacist has been rejected`;
 
-    const htmlContent = `<p>Your request to add a pharmacist has been rejected.</p>
-                          <p>The pharmacist was not added to the system.</p>
-                              <h3>Pharmacist Information</h3>
-                              <p>Pharmacist Name: <strong>${pharmacistRequest.firstName} ${pharmacistRequest.lastName}</strong><br>
-                              Email: <strong>${pharmacistRequest.email}</strong><br></p>
-
-                              <p>To view all the details go to
-                              <a href="https://shifthappens.vercel.app/">Shift Happens.</a></p>
-                              <p>Cheers,<br>
-                              CurisRx Pharmacy<br>
-                              Pharm Drugstore</p>`;
+    const emailData = {
+      pharmacistFirstName: pharmacistRequest.firstName,
+      pharmacistLastName: pharmacistRequest.lastName,
+      pharmacistEmail: pharmacistRequest.email,
+      portalUrl: this.portalUrl,
+    };
 
     try {
-      const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      });
+      const { data, error } = await this.sendTemplateEmail(
+        templateName,
+        to,
+        emailData,
+      );
 
       if (error) throw new Error(JSON.stringify(error));
 
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'sent',
         templateName,
-        providerMessageId: data.id,
+        subject: data?.subject || 'Pharmacist Request Rejected',
+        status: 'sent',
+        providerMessageId: data!.id,
+        templateVersion: data?.templateVersion,
       });
 
       this.logger.log('Email sent successfully');
       return data;
     } catch (error) {
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'failed',
         templateName,
-        errorMessage: getErrorMessage(error),
+        subject: 'Pharmacist Request Rejected',
+        status: 'failed',
+        error,
       });
       this.logger.error(
         'Unexpected error sending email',
@@ -1330,51 +1242,38 @@ export class EmailService {
 
   async sendPasswordResetEmail(to: string, resetLink: string) {
     const templateName = 'password_reset';
-    const subject = 'Reset Your Password - Shift Happens';
 
-    const htmlContent = `<p>Hi there,</p>
-                              <p>You requested to reset your password for your Shift Happens account.</p>
-                              <p>Click the button below to set a new password:</p>
-                              <p style="text-align: left; margin: 30px 0;">
-                                <a href="${resetLink}" style="background-color: #ed2375; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;">
-                                  Reset Password
-                                </a>
-                              </p>
-                              <p>Or copy and paste this link into your browser:</p>
-                              <p style="word-break: break-all; color: #666; font-size: 14px;">${resetLink}</p>
-                              <p>This link will expire in 1 hour.</p>
-                              <p>If you didn't request this, you can safely ignore this email.</p>
-                              <p>Cheers,<br>
-                              CurisRx Pharmacy<br>
-                              Pharm Drugstore</p>`;
+    const emailData = {
+      resetLink,
+    };
 
     try {
-      const { data, error } = await this.resend.emails.send({
-        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
-        to: [to],
-        subject: subject,
-        html: htmlContent,
-      });
+      const { data, error } = await this.sendTemplateEmail(
+        templateName,
+        to,
+        emailData,
+      );
 
       if (error) throw new Error(JSON.stringify(error));
 
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'sent',
         templateName,
-        providerMessageId: data.id,
+        subject: data?.subject || 'Password Reset',
+        status: 'sent',
+        providerMessageId: data!.id,
+        templateVersion: data?.templateVersion,
       });
 
       this.logger.log('Password reset email sent successfully');
       return data;
     } catch (error) {
-      await this.logEmail({
+      await this.logSingleEmailResult({
         to,
-        subject,
-        status: 'failed',
         templateName,
-        errorMessage: getErrorMessage(error),
+        subject: 'Password Reset',
+        status: 'failed',
+        error,
       });
       this.logger.error(
         'Unexpected error sending password reset email',
@@ -1390,6 +1289,7 @@ export class EmailService {
     status: 'sent' | 'failed';
     templateName?: string;
     providerMessageId?: string;
+    templateVersion?: number;
     errorMessage?: string;
   }) {
     return await this.prisma.emailLog.create({
@@ -1399,6 +1299,7 @@ export class EmailService {
         status: params.status,
         templateName: params.templateName,
         providerMessageId: params.providerMessageId,
+        templateVersion: params.templateVersion,
         errorMessage: params.errorMessage,
       },
     });
@@ -1413,7 +1314,7 @@ function formatTime(stringDate, timeZone) {
   return formatInTimeZone(stringDate, timeZone, 'HH:mm');
 }
 
-function generateGCalLink(shift: ShiftWithCompanyAddress) {
+function generateGCalLink(shift: ShiftWithCompanyAddress, portalUrl: string) {
   const baseUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
 
   const start = formatInTimeZone(
@@ -1426,7 +1327,7 @@ function generateGCalLink(shift: ShiftWithCompanyAddress) {
     shift.company?.timezone,
     "yyyyMMdd'T'HHmmssXXX",
   );
-  const appLink = `https://shifthappens.vercel.app/`;
+  const appLink = portalUrl;
   const eventDetails = `Details: ${shift.title || ''}: ${shift.description || ''} \n\n<a href="${appLink}">Click here to view all details</a>`;
 
   const params = new URLSearchParams({
@@ -1445,7 +1346,7 @@ function generateGCalLink(shift: ShiftWithCompanyAddress) {
   return `${baseUrl}&${params.toString()}`;
 }
 
-function generateGCalLinkForMultipleDates(shift, dateStr) {
+function generateGCalLinkForMultipleDates(shift, dateStr, portalUrl: string) {
   const baseUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
 
   const combineDateAndTime = (baseDateStr, timeSource) => {
@@ -1469,7 +1370,7 @@ function generateGCalLinkForMultipleDates(shift, dateStr) {
   const start = combineDateAndTime(dateStr, shift.startTime);
   const end = combineDateAndTime(dateStr, shift.endTime);
 
-  const appLink = `https://shifthappens.vercel.app/`;
+  const appLink = portalUrl;
   const eventDetails = `Details: ${shift.title || ''}: ${shift.description || ''} \n\n<a href="${appLink}">Click here to view all details</a>`;
 
   const params = new URLSearchParams({

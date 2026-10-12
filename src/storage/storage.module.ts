@@ -5,11 +5,11 @@ import { PrismaModule } from 'src/prisma/prisma.module';
 import { AuthModule } from 'src/auth/auth.module';
 import { FirebaseService } from 'src/firebase/firebase.service';
 import { UsersService } from 'src/users/users.service';
-import { EmailService } from 'src/email/email.service';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
   controllers: [StorageController],
-  providers: [StorageService, FirebaseService, UsersService, EmailService],
-  imports: [PrismaModule, AuthModule],
+  providers: [StorageService, FirebaseService, UsersService],
+  imports: [PrismaModule, AuthModule, EmailModule],
 })
 export class StorageModule {}

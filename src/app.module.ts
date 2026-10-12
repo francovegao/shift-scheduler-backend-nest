@@ -12,7 +12,6 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { HealthModule } from './health/health.module';
 import { ShiftSeriesModule } from './shift-series/shift-series.module';
-import { EmailService } from './email/email.service';
 import { FilesModule } from './files/files.module';
 import { StorageModule } from './storage/storage.module';
 import { CancellationRequestsModule } from './cancellation-requests/cancellation-requests.module';
@@ -22,6 +21,7 @@ import { PharmacistRequestsModule } from './pharmacist-requests/pharmacist-reque
 import { PharmacistCommentsModule } from './pharmacist-comments/pharmacist-comments.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -43,6 +43,7 @@ import { APP_GUARD } from '@nestjs/core';
     ReportsModule,
     PharmacistRequestsModule,
     PharmacistCommentsModule,
+    EmailModule,
     ThrottlerModule.forRoot([
       {
         name: 'default',
@@ -54,7 +55,6 @@ import { APP_GUARD } from '@nestjs/core';
   controllers: [AppController],
   providers: [
     AppService,
-    EmailService,
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,

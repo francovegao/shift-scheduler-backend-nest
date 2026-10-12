@@ -202,7 +202,16 @@ Pharm Drugstore`,
     htmlTemplate: `<p>Hi {{pharmacistFirstName}},</p>
 <p>This email confirms that you have been assigned multiple shifts at <strong>{{companyName}}</strong></p>
 <p><strong>Assigned Shifts Details</strong><br>
-{{shiftListHtml}}
+{{#each shifts}} 
+  <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #f44336; background: #fafafa;">
+    <p style="margin: 0;">Date: <strong>{{date}}</strong></p>
+    <p style="margin: 0;">Time: <strong>{{startTime}} - {{endTime}}</strong></p>
+    <p style="margin: 0;">Notes: {{title}}</p> <p style="margin: 0;">{{description}}</p>
+    <p style="margin: 8px 0 0;"> 
+      <a href="{{gcalLink}}">Add shift to Google Calendar</a> 
+    </p> 
+  </div> 
+{{/each}}
 <p>We'll reach out <strong>24 hours before your shifts</strong> with your pharmacy access codes and login details.<br>
 Once you get to the store, you'll find a <strong>location-specific Pharmacist Relief Binder</strong> with<br>
 guidance on workflows, procedures, and key contacts to help your shift run smoothly.</p>
@@ -218,8 +227,15 @@ Pharm Drugstore</p>`,
 This email confirms that you have been assigned multiple shifts at {{companyName}}
 
 Assigned Shifts Details
-{{shiftListText}}
 
+{{#each shifts}} 
+Date: {{date}} 
+Time: {{startTime}} - {{endTime}} 
+Notes: {{title}} 
+{{description}} 
+Add shift to Google Calendar: {{gcalLink}} 
+
+{{/each}}
 We'll reach out 24 hours before your shifts with your pharmacy access codes and login details.
 Once you get to the store, you'll find a location-specific Pharmacist Relief Binder with
 guidance on workflows, procedures, and key contacts to help your shift run smoothly.
@@ -236,8 +252,7 @@ Pharm Drugstore`,
     variables: {
       pharmacistFirstName: 'string',
       companyName: 'string',
-      shiftListHtml: 'string',
-      shiftListText: 'string',
+      shifts: 'array',
       portalUrl: 'string',
     },
     allowManualSend: false,
@@ -482,7 +497,16 @@ Pharm Drugstore`,
     subjectTemplate: 'Multiple Shifts Assigned at {{companyName}}',
     htmlTemplate: `<p>You have been assigned multiple shifts at <strong>{{companyName}}</strong>.</p>
 <p>Assigned Shifts Information<br>
-{{shiftListHtml}}
+{{#each shifts}} 
+  <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #f44336; background: #fafafa;">
+    <p style="margin: 0;">Date: <strong>{{date}}</strong></p>
+    <p style="margin: 0;">Time: <strong>{{startTime}} - {{endTime}}</strong></p>
+    <p style="margin: 0;">Notes: {{title}}</p> <p style="margin: 0;">{{description}}</p>
+    <p style="margin: 8px 0 0;"> 
+      <a href="{{gcalLink}}">Add shift to Google Calendar</a> 
+    </p> 
+  </div> 
+{{/each}}
 <p>We'll reach out <strong>24 hours before your shift</strong> with your pharmacy access codes and login details.<br>
 Once you get to the store, you'll find a <strong>location-specific Pharmacist Relief Binder</strong> with<br>
 guidance on workflows, procedures, and key contacts to help your shift run smoothly.</p>
@@ -496,7 +520,14 @@ Pharm Drugstore</p>`,
     textTemplate: `You have been assigned multiple shifts at {{companyName}}.
 
 Assigned Shifts Information
-{{shiftListText}}
+{{#each shifts}} 
+Date: {{date}} 
+Time: {{startTime}} - {{endTime}} 
+Notes: {{title}} 
+{{description}} 
+Add shift to Google Calendar: {{gcalLink}} 
+
+{{/each}}
 
 We'll reach out 24 hours before your shift with your pharmacy access codes and login details.
 Once you get to the store, you'll find a location-specific Pharmacist Relief Binder with
@@ -513,8 +544,7 @@ CurisRx Pharmacy
 Pharm Drugstore`,
     variables: {
       companyName: 'string',
-      shiftListHtml: 'string',
-      shiftListText: 'string',
+      shifts: 'array',
       portalUrl: 'string',
     },
     allowManualSend: false,
@@ -528,7 +558,16 @@ Pharm Drugstore`,
     subjectTemplate: 'Multiple Shifts Updated at {{companyName}}',
     htmlTemplate: `<p>Your assigned shifts at  <strong>{{companyName}}</strong> have been updated.</p>
 <p>Updated Shifts Information<br>
-{{shiftListHtml}}
+{{#each shifts}} 
+  <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #f44336; background: #fafafa;">
+    <p style="margin: 0;">Date: <strong>{{date}}</strong></p>
+    <p style="margin: 0;">Time: <strong>{{startTime}} - {{endTime}}</strong></p>
+    <p style="margin: 0;">Notes: {{title}}</p> <p style="margin: 0;">{{description}}</p>
+    <p style="margin: 8px 0 0;"> 
+      <a href="{{gcalLink}}">Add shift to Google Calendar</a> 
+    </p> 
+  </div> 
+{{/each}}
 <p>To view your updated schedule, visit 
 <a href="{{portalUrl}}">Shift Happens.</a></p>
 <p>Cheers,<br>
@@ -537,7 +576,14 @@ Pharm Drugstore</p>`,
     textTemplate: `Your assigned shifts at {{companyName}} have been updated.
 
 Updated Shifts Information
-{{shiftListText}}
+{{#each shifts}} 
+Date: {{date}} 
+Time: {{startTime}} - {{endTime}} 
+Notes: {{title}} 
+{{description}} 
+Add shift to Google Calendar: {{gcalLink}} 
+
+{{/each}}
 
 To view your updated schedule, visit Shift Happens: {{portalUrl}}
 
@@ -546,8 +592,7 @@ CurisRx Pharmacy
 Pharm Drugstore`,
     variables: {
       companyName: 'string',
-      shiftListHtml: 'string',
-      shiftListText: 'string',
+      shifts: 'array',
       portalUrl: 'string',
     },
     allowManualSend: false,
@@ -560,7 +605,16 @@ Pharm Drugstore`,
       'Sent to pharmacists when multiple assigned shifts in a series are cancelled',
     subjectTemplate: 'Multiple Shifts Cancelled at {{companyName}}',
     htmlTemplate: `<p>The following shifts at <strong>{{companyName}}</strong> have been cancelled.</p>
-{{shiftListHtml}}
+{{#each shifts}} 
+  <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #f44336; background: #fafafa;">
+    <p style="margin: 0;">Date: <strong>{{date}}</strong></p>
+    <p style="margin: 0;">Time: <strong>{{startTime}} - {{endTime}}</strong></p>
+    <p style="margin: 0;">Notes: {{title}}</p> <p style="margin: 0;">{{description}}</p>
+    <p style="margin: 8px 0 0;"> 
+      <a href="{{gcalLink}}">Add shift to Google Calendar</a> 
+    </p> 
+  </div> 
+{{/each}}
 <p>To view your updated schedule, visit 
 <a href="{{portalUrl}}">Shift Happens.</a></p>
 <p>Cheers,<br>
@@ -568,7 +622,14 @@ CurisRx Pharmacy<br>
 Pharm Drugstore</p>`,
     textTemplate: `The following shifts at {{companyName}} have been cancelled.
 
-{{shiftListText}}
+{{#each shifts}} 
+Date: {{date}} 
+Time: {{startTime}} - {{endTime}} 
+Notes: {{title}} 
+{{description}} 
+Add shift to Google Calendar: {{gcalLink}} 
+
+{{/each}}
 
 To view your updated schedule, visit Shift Happens: {{portalUrl}}
 
@@ -577,8 +638,7 @@ CurisRx Pharmacy
 Pharm Drugstore`,
     variables: {
       companyName: 'string',
-      shiftListHtml: 'string',
-      shiftListText: 'string',
+      shifts: 'array',
       portalUrl: 'string',
     },
     allowManualSend: false,

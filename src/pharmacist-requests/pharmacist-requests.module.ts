@@ -6,7 +6,7 @@ import { AuthModule } from 'src/auth/auth.module';
 import { UsersService } from 'src/users/users.service';
 import { PharmacistProfilesService } from 'src/pharmacist-profiles/pharmacist-profiles.service';
 import { FirebaseService } from 'src/firebase/firebase.service';
-import { EmailService } from 'src/email/email.service';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
   controllers: [PharmacistRequestsController],
@@ -15,8 +15,7 @@ import { EmailService } from 'src/email/email.service';
     UsersService,
     PharmacistProfilesService,
     FirebaseService,
-    EmailService,
   ],
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule, AuthModule, EmailModule],
 })
 export class PharmacistRequestsModule {}

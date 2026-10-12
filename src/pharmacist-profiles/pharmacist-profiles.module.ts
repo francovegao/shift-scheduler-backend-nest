@@ -4,11 +4,11 @@ import { PharmacistProfilesController } from './pharmacist-profiles.controller';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { AuthModule } from 'src/auth/auth.module';
 import { UsersService } from 'src/users/users.service';
-import { EmailService } from 'src/email/email.service';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
   controllers: [PharmacistProfilesController],
-  providers: [PharmacistProfilesService, UsersService, EmailService],
-  imports: [PrismaModule, AuthModule],
+  providers: [PharmacistProfilesService, UsersService],
+  imports: [PrismaModule, AuthModule, EmailModule],
 })
 export class PharmacistProfilesModule {}

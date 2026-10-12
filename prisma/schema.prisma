@@ -213,6 +213,7 @@ model EmailLog {
   templateName      String?
   status            EmailStatus
   providerMessageId String?
+  templateVersion    Int?
   errorMessage      String?
   metadata          Json?
   createdAt         DateTime    @default(now())
