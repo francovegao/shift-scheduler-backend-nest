@@ -380,7 +380,7 @@ async function run() {
     await emailService.emailNewUser(TEST_EMAIL, resetLink, 'John');
   });
 
-  11. emailPharmacistRequestApproved
+  // 11. emailPharmacistRequestApproved
   await test('emailPharmacistRequestApproved', async () => {
     const request = createMockPharmacistRequest({
       firstName: 'Jane',
