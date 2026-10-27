@@ -1,4 +1,5 @@
 import { EmailTemplateValidationService } from '../email/email-template-validation.service';
+import { getEmailTemplateDataSchema } from '../email/email-template-data.schema';
 
 const templateValidator = new EmailTemplateValidationService();
 
@@ -7,7 +8,7 @@ const result = templateValidator.validate({
   htmlTemplate: `
     <p>Hi {{pharmacistFirstName}}</p>
     {{#each shifts}}
-      <p>{{date}} - {{startTime}} - {{endTime}}</p>
+      <p>{{shiftDate}} - {{startTime}} - {{endTime}}</p>
       <a href="{{gcalLink}}">Add to calendar</a>
     {{/each}}
     <a href="{{portalUrl}}">Log in</a>
@@ -15,9 +16,20 @@ const result = templateValidator.validate({
   variables: {
     pharmacistFirstName: 'string',
     companyName: 'string',
-    shifts: 'array',
+    shifts: {
+      type: 'array',
+      items: {
+        shiftDate: 'string',
+        startTime: 'string',
+        endTime: 'string',
+        title: 'string',
+        description: 'string',
+        gcalLink: 'string',
+      },
+    },
     portalUrl: 'string',
   },
+  dataSchema: getEmailTemplateDataSchema('multiple_shifts_assigned'),
 });
 
 console.log(result);

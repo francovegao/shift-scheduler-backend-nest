@@ -1,4 +1,5 @@
 import { EmailTemplateValidationService } from './email-template-validation.service';
+import { getEmailTemplateDataSchema } from './email-template-data.schema';
 
 describe('EmailTemplateValidationService', () => {
   let validator: EmailTemplateValidationService;
@@ -90,5 +91,53 @@ describe('EmailTemplateValidationService', () => {
     });
 
     expect(result.valid).toBe(true);
+  });
+
+  it('accepts declared shift item fields inside an each block', () => {
+    const result = validator.validate({
+      subjectTemplate: 'Shifts at {{companyName}}',
+      htmlTemplate:
+        '{{#each shifts}}{{shiftDate}} {{startTime}} {{gcalLink}}{{/each}}',
+      variables: {
+        companyName: 'string',
+        shifts: { type: 'array', items: { shiftDate: 'string' } },
+      },
+      dataSchema: getEmailTemplateDataSchema('multiple_shifts_assigned'),
+    });
+
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects undeclared shift item fields inside an each block', () => {
+    const result = validator.validate({
+      subjectTemplate: 'Shifts at {{companyName}}',
+      htmlTemplate: '{{#each shifts}}{{unknownItemField}}{{/each}}',
+      variables: {
+        companyName: 'string',
+        shifts: { type: 'array', items: {} },
+      },
+      dataSchema: getEmailTemplateDataSchema('multiple_shifts_assigned'),
+    });
+
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some((error) => error.message.includes('unknownItemField')),
+    ).toBe(true);
+  });
+
+  it('validates runtime shift item data through the shared service API', () => {
+    const schema = getEmailTemplateDataSchema('multiple_shifts_assigned');
+    if (!schema) throw new Error('Expected template schema');
+
+    const issues = validator.validateData(schema, {
+      pharmacistFirstName: 'Ada',
+      companyName: 'Test Company',
+      portalUrl: 'https://example.test/portal',
+      shifts: [{ shiftDate: 'January 15, 2030' }],
+    });
+
+    expect(issues).toContainEqual(
+      expect.objectContaining({ path: 'shifts[0].startTime' }),
+    );
   });
 });

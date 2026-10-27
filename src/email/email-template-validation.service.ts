@@ -1,12 +1,17 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Injectable } from '@nestjs/common';
 import * as Handlebars from 'handlebars';
+import {
+  EmailTemplateDataSchema,
+  validateEmailTemplateData,
+} from './email-template-data.schema';
 
 export interface EmailTemplateValidationInput {
   subjectTemplate?: string;
   htmlTemplate?: string;
   textTemplate?: string | null;
   variables?: Record<string, unknown>;
+  dataSchema?: EmailTemplateDataSchema;
 }
 
 export interface EmailTemplateValidationIssue {
@@ -91,7 +96,7 @@ export class EmailTemplateValidationService {
         continue;
       }
 
-      this.validateAst(ast, field, declaredVariables, errors);
+      this.validateAst(ast, field, declaredVariables, errors, input.dataSchema);
     }
 
     return {
@@ -101,11 +106,19 @@ export class EmailTemplateValidationService {
     };
   }
 
+  validateData(
+    dataSchema: EmailTemplateDataSchema,
+    data: Record<string, unknown>,
+  ) {
+    return validateEmailTemplateData(dataSchema, data);
+  }
+
   private validateAst(
     ast: any,
     field: EmailTemplateValidationIssue['field'],
     declaredVariables: Record<string, unknown>,
     errors: EmailTemplateValidationIssue[],
+    dataSchema?: EmailTemplateDataSchema,
   ): void {
     const walk = (node: any, insideEach: boolean): void => {
       if (!node || typeof node !== 'object') return;
@@ -132,6 +145,10 @@ export class EmailTemplateValidationService {
         }
 
         const nextInsideEach = insideEach || helperName === 'each';
+
+        if (helperName === 'each' && dataSchema) {
+          this.validateEachBlockFields(node, field, dataSchema, errors);
+        }
 
         if (this.blockHelpers.has(helperName)) {
           if (node.hash) {
@@ -192,7 +209,7 @@ export class EmailTemplateValidationService {
         return;
       }
 
-      for (const value of Object.values(node)) {
+      for (const value of Object.values(node as Record<string, unknown>)) {
         if (value && typeof value === 'object') {
           walk(value, insideEach);
         }
@@ -200,6 +217,87 @@ export class EmailTemplateValidationService {
     };
 
     walk(ast, false);
+  }
+
+  private validateEachBlockFields(
+    node: any,
+    field: EmailTemplateValidationIssue['field'],
+    dataSchema: EmailTemplateDataSchema,
+    errors: EmailTemplateValidationIssue[],
+  ): void {
+    const collection: unknown = node.params?.[0];
+    const collectionName = this.getPathName(collection);
+    const itemFields = dataSchema.fields[collectionName]?.items;
+
+    if (!itemFields) return;
+
+    const walk = (child: any): void => {
+      if (!child || typeof child !== 'object') return;
+      if (Array.isArray(child)) {
+        child.forEach(walk);
+        return;
+      }
+
+      if (child.type === 'BlockStatement' && child !== node) {
+        // Nested blocks establish their own scope and are validated separately.
+        return;
+      }
+
+      if (child.type === 'MustacheStatement') {
+        this.validateEachPath(
+          child.path,
+          field,
+          collectionName,
+          itemFields,
+          errors,
+        );
+        for (const param of child.params ?? []) {
+          this.validateEachPath(
+            param,
+            field,
+            collectionName,
+            itemFields,
+            errors,
+          );
+        }
+      }
+
+      for (const value of Object.values(child as Record<string, unknown>)) {
+        if (value && typeof value === 'object') walk(value);
+      }
+    };
+
+    walk(node.program);
+  }
+
+  private validateEachPath(
+    path: any,
+    field: EmailTemplateValidationIssue['field'],
+    collectionName: string,
+    itemFields: Record<string, unknown>,
+    errors: EmailTemplateValidationIssue[],
+  ): void {
+    if (!path || path.type !== 'PathExpression') return;
+
+    const original = String(path.original ?? '').trim();
+    if (
+      !original ||
+      original === '.' ||
+      original === 'this' ||
+      original.startsWith('@') ||
+      original.startsWith('../') ||
+      this.inlineHelpers.has(original)
+    ) {
+      return;
+    }
+
+    const fieldName = original.split(/[.[\]]/)[0];
+    if (!(fieldName in itemFields)) {
+      errors.push({
+        field,
+        message: `Variable "${fieldName}" is not declared for items in "${collectionName}".`,
+      });
+    }
   }
 
   private inspectExpression(
@@ -264,7 +362,7 @@ export class EmailTemplateValidationService {
       return;
     }
 
-    for (const value of Object.values(expression)) {
+    for (const value of Object.values(expression as Record<string, unknown>)) {
       if (value && typeof value === 'object') {
         this.inspectExpression(
           value,

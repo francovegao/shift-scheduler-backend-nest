@@ -204,7 +204,7 @@ Pharm Drugstore`,
 <p><strong>Assigned Shifts Details</strong><br>
 {{#each shifts}} 
   <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #f44336; background: #fafafa;">
-    <p style="margin: 0;">Date: <strong>{{date}}</strong></p>
+    <p style="margin: 0;">Date: <strong>{{shiftDate}}</strong></p>
     <p style="margin: 0;">Time: <strong>{{startTime}} - {{endTime}}</strong></p>
     <p style="margin: 0;">Notes: {{title}}</p> <p style="margin: 0;">{{description}}</p>
     <p style="margin: 8px 0 0;"> 
@@ -229,7 +229,7 @@ This email confirms that you have been assigned multiple shifts at {{companyName
 Assigned Shifts Details
 
 {{#each shifts}} 
-Date: {{date}} 
+ Date: {{shiftDate}}
 Time: {{startTime}} - {{endTime}} 
 Notes: {{title}} 
 {{description}} 
@@ -252,7 +252,17 @@ Pharm Drugstore`,
     variables: {
       pharmacistFirstName: 'string',
       companyName: 'string',
-      shifts: 'array',
+      shifts: {
+        type: 'array',
+        items: {
+          shiftDate: 'string',
+          startTime: 'string',
+          endTime: 'string',
+          title: 'string',
+          description: 'string',
+          gcalLink: 'string',
+        },
+      },
       portalUrl: 'string',
     },
     allowManualSend: false,
@@ -499,7 +509,7 @@ Pharm Drugstore`,
 <p>Assigned Shifts Information<br>
 {{#each shifts}} 
   <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #f44336; background: #fafafa;">
-    <p style="margin: 0;">Date: <strong>{{date}}</strong></p>
+    <p style="margin: 0;">Date: <strong>{{shiftDate}}</strong></p>
     <p style="margin: 0;">Time: <strong>{{startTime}} - {{endTime}}</strong></p>
     <p style="margin: 0;">Notes: {{title}}</p> <p style="margin: 0;">{{description}}</p>
     <p style="margin: 8px 0 0;"> 
@@ -521,7 +531,7 @@ Pharm Drugstore</p>`,
 
 Assigned Shifts Information
 {{#each shifts}} 
-Date: {{date}} 
+ Date: {{shiftDate}}
 Time: {{startTime}} - {{endTime}} 
 Notes: {{title}} 
 {{description}} 
@@ -544,7 +554,17 @@ CurisRx Pharmacy
 Pharm Drugstore`,
     variables: {
       companyName: 'string',
-      shifts: 'array',
+      shifts: {
+        type: 'array',
+        items: {
+          shiftDate: 'string',
+          startTime: 'string',
+          endTime: 'string',
+          title: 'string',
+          description: 'string',
+          gcalLink: 'string',
+        },
+      },
       portalUrl: 'string',
     },
     allowManualSend: false,
@@ -560,7 +580,7 @@ Pharm Drugstore`,
 <p>Updated Shifts Information<br>
 {{#each shifts}} 
   <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #f44336; background: #fafafa;">
-    <p style="margin: 0;">Date: <strong>{{date}}</strong></p>
+    <p style="margin: 0;">Date: <strong>{{shiftDate}}</strong></p>
     <p style="margin: 0;">Time: <strong>{{startTime}} - {{endTime}}</strong></p>
     <p style="margin: 0;">Notes: {{title}}</p> <p style="margin: 0;">{{description}}</p>
     <p style="margin: 8px 0 0;"> 
@@ -577,7 +597,7 @@ Pharm Drugstore</p>`,
 
 Updated Shifts Information
 {{#each shifts}} 
-Date: {{date}} 
+ Date: {{shiftDate}}
 Time: {{startTime}} - {{endTime}} 
 Notes: {{title}} 
 {{description}} 
@@ -592,7 +612,17 @@ CurisRx Pharmacy
 Pharm Drugstore`,
     variables: {
       companyName: 'string',
-      shifts: 'array',
+      shifts: {
+        type: 'array',
+        items: {
+          shiftDate: 'string',
+          startTime: 'string',
+          endTime: 'string',
+          title: 'string',
+          description: 'string',
+          gcalLink: 'string',
+        },
+      },
       portalUrl: 'string',
     },
     allowManualSend: false,
@@ -607,7 +637,7 @@ Pharm Drugstore`,
     htmlTemplate: `<p>The following shifts at <strong>{{companyName}}</strong> have been cancelled.</p>
 {{#each shifts}} 
   <div style="margin-bottom: 15px; padding: 10px; border-left: 4px solid #f44336; background: #fafafa;">
-    <p style="margin: 0;">Date: <strong>{{date}}</strong></p>
+    <p style="margin: 0;">Date: <strong>{{shiftDate}}</strong></p>
     <p style="margin: 0;">Time: <strong>{{startTime}} - {{endTime}}</strong></p>
     <p style="margin: 0;">Notes: {{title}}</p> <p style="margin: 0;">{{description}}</p>
     <p style="margin: 8px 0 0;"> 
@@ -623,7 +653,7 @@ Pharm Drugstore</p>`,
     textTemplate: `The following shifts at {{companyName}} have been cancelled.
 
 {{#each shifts}} 
-Date: {{date}} 
+ Date: {{shiftDate}}
 Time: {{startTime}} - {{endTime}} 
 Notes: {{title}} 
 {{description}} 
@@ -638,7 +668,17 @@ CurisRx Pharmacy
 Pharm Drugstore`,
     variables: {
       companyName: 'string',
-      shifts: 'array',
+      shifts: {
+        type: 'array',
+        items: {
+          shiftDate: 'string',
+          startTime: 'string',
+          endTime: 'string',
+          title: 'string',
+          description: 'string',
+          gcalLink: 'string',
+        },
+      },
       portalUrl: 'string',
     },
     allowManualSend: false,
@@ -960,6 +1000,7 @@ Pharm Drugstore`,
 
 async function main() {
   console.log('🌱 Starting email template seed...');
+  const syncExistingTemplates = false;
 
   for (const template of templates) {
     const existing = await prisma.emailTemplate.findUnique({
@@ -967,31 +1008,47 @@ async function main() {
     });
 
     if (existing) {
-      console.log(`⏭️  Template "${template.key}" already exists, updating...`);
-      await prisma.emailTemplate.update({
-        where: { key: template.key },
-        data: {
-          name: template.name,
-          description: template.description,
-          subjectTemplate: template.subjectTemplate,
-          htmlTemplate: template.htmlTemplate,
-          textTemplate: template.textTemplate,
-          variables: template.variables,
-          allowManualSend: template.allowManualSend,
-          isActive: template.isActive,
-          updatedById: null,
-        },
-      });
+      if (!syncExistingTemplates) {
+        console.log(
+          `⏭️  Template "${template.key}" already exists, skipping...`,
+        );
+        continue;
+      }
 
-      await prisma.emailTemplateVersion.create({
-        data: {
-          templateId: existing.id,
-          version: 2,
-          subjectTemplate: template.subjectTemplate,
-          htmlTemplate: template.htmlTemplate,
-          textTemplate: template.textTemplate,
-          changedById: null,
-        },
+      console.log(`🔄 Syncing template "${template.key}" from the seed...`);
+      await prisma.$transaction(async (tx) => {
+        const latestVersion = await tx.emailTemplateVersion.findFirst({
+          where: { templateId: existing.id },
+          orderBy: { version: 'desc' },
+          select: { version: true },
+        });
+        const version = (latestVersion?.version ?? 0) + 1;
+
+        await tx.emailTemplate.update({
+          where: { key: template.key },
+          data: {
+            name: template.name,
+            description: template.description,
+            subjectTemplate: template.subjectTemplate,
+            htmlTemplate: template.htmlTemplate,
+            textTemplate: template.textTemplate,
+            variables: template.variables,
+            allowManualSend: template.allowManualSend,
+            isActive: template.isActive,
+            updatedById: null,
+          },
+        });
+
+        await tx.emailTemplateVersion.create({
+          data: {
+            templateId: existing.id,
+            version,
+            subjectTemplate: template.subjectTemplate,
+            htmlTemplate: template.htmlTemplate,
+            textTemplate: template.textTemplate,
+            changedById: null,
+          },
+        });
       });
     } else {
       console.log(`✅ Creating template "${template.key}"...`);

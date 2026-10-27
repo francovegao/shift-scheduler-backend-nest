@@ -187,7 +187,7 @@ export class EmailService {
     const templateName = 'shift_assigned';
 
     const emailData = {
-      pharmacistFirstName: shift?.pharmacist?.user?.firstName,
+      pharmacistFirstName: shift?.pharmacist?.user?.firstName ?? '',
       companyName: shift.company.name,
       shiftDate: formatDate(shift.startTime, shift.company.timezone),
       startTime: formatTime(shift.startTime, shift.company.timezone),
@@ -239,7 +239,7 @@ export class EmailService {
     const templateName = 'shift_taken';
 
     const emailData = {
-      pharmacistFirstName: shift?.pharmacist?.user?.firstName,
+      pharmacistFirstName: shift?.pharmacist?.user?.firstName ?? '',
       companyName: shift.company.name,
       shiftDate: formatDate(shift.startTime, shift.company.timezone),
       startTime: formatTime(shift.startTime, shift.company.timezone),
@@ -376,7 +376,7 @@ export class EmailService {
     });
 
     const emailData = {
-      pharmacistFirstName: shift?.pharmacist?.user?.firstName,
+      pharmacistFirstName: shift?.pharmacist?.user?.firstName ?? '',
       companyName: shift.company.name,
       shifts,
       portalUrl: this.portalUrl,
@@ -802,6 +802,7 @@ export class EmailService {
             endTime,
             title: shift.title || 'N/A',
             description: shift.description || '',
+            gcalLink: generateGCalLink(shift, this.portalUrl),
           };
         });
 
@@ -1314,7 +1315,18 @@ function formatTime(stringDate, timeZone) {
   return formatInTimeZone(stringDate, timeZone, 'HH:mm');
 }
 
-function generateGCalLink(shift: ShiftWithCompanyAddress, portalUrl: string) {
+function generateGCalLink(
+  shift: Shift & {
+    company: {
+      name: string;
+      timezone: string;
+      address?: string | null;
+      city?: string | null;
+      province?: string | null;
+    };
+  },
+  portalUrl: string,
+) {
   const baseUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
 
   const start = formatInTimeZone(

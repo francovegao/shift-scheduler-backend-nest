@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import {
   Injectable,
   InternalServerErrorException,
@@ -7,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import Handlebars from 'handlebars';
+import { getEmailTemplateDataSchema } from './email-template-data.schema';
 import { EmailTemplateValidationService } from './email-template-validation.service';
 
 @Injectable()
@@ -16,7 +15,7 @@ export class EmailTemplateRendererService {
     private templateValidator: EmailTemplateValidationService,
   ) {}
 
-  async render(templateKey: string, data: Record<string, any>) {
+  async render(templateKey: string, data: Record<string, unknown>) {
     const template = await this.prisma.emailTemplate.findUnique({
       where: {
         key: templateKey,
@@ -37,11 +36,19 @@ export class EmailTemplateRendererService {
       throw new Error(`Email template "${templateKey}" is inactive`);
     }
 
+    const dataSchema = getEmailTemplateDataSchema(templateKey);
+    if (!dataSchema) {
+      throw new InternalServerErrorException(
+        `Email template "${templateKey}" has no server-side data schema.`,
+      );
+    }
+
     const validation = this.templateValidator.validate({
       subjectTemplate: template.subjectTemplate,
       htmlTemplate: template.htmlTemplate,
       textTemplate: template.textTemplate,
       variables: this.asVariableMap(template.variables),
+      dataSchema,
     });
 
     if (!validation.valid) {
@@ -51,6 +58,17 @@ export class EmailTemplateRendererService {
 
       throw new InternalServerErrorException(
         `Stored email template "${templateKey}" is invalid: ${details}`,
+      );
+    }
+
+    const dataIssues = this.templateValidator.validateData(dataSchema, data);
+    if (dataIssues.length > 0) {
+      const details = dataIssues
+        .map((issue) => `${issue.path} ${issue.message}`)
+        .join('; ');
+
+      throw new InternalServerErrorException(
+        `Invalid data for email template "${templateKey}": ${details}`,
       );
     }
 

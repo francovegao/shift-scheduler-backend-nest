@@ -7,15 +7,15 @@ describe('EmailTemplatesService', () => {
   const admin = { id: 'admin-id', role: 'admin' };
   const draft = {
     subjectTemplate: 'Shift at {{companyName}}',
-    htmlTemplate: '<p>Hello {{pharmacistName}}</p>',
-    textTemplate: 'Hello {{pharmacistName}}',
+    htmlTemplate: '<p>Hello {{pharmacistFirstName}}</p>',
+    textTemplate: 'Hello {{pharmacistFirstName}}',
   };
   const template = {
     id: 'template-id',
     key: 'shift_assigned',
     variables: {
       companyName: 'string',
-      pharmacistName: 'string',
+      pharmacistFirstName: 'string',
     },
   };
 
@@ -55,10 +55,12 @@ describe('EmailTemplatesService', () => {
       result,
     );
 
-    expect(validator.validate).toHaveBeenCalledWith({
-      ...draft,
-      variables: template.variables,
-    });
+    expect(validator.validate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ...draft,
+        variables: template.variables,
+      }),
+    );
   });
 
   it('renders preview content with generated mock values and does not persist', async () => {
@@ -71,8 +73,8 @@ describe('EmailTemplatesService', () => {
 
     await expect(service.preview(admin, template.key, draft)).resolves.toEqual({
       subject: 'Shift at Test Company',
-      html: '<p>Hello Test Pharmacist Name</p>',
-      text: 'Hello Test Pharmacist Name',
+      html: '<p>Hello Test Pharmacist</p>',
+      text: 'Hello Test Pharmacist',
       warnings: [],
     });
 
@@ -97,6 +99,49 @@ describe('EmailTemplatesService', () => {
     );
 
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid Handlebars and undeclared variables without updating', async () => {
+    const realValidator = new EmailTemplateValidationService();
+    service = new EmailTemplatesService(
+      prisma as unknown as PrismaService,
+      realValidator,
+    );
+    prisma.emailTemplate.findUnique.mockResolvedValue(template);
+
+    await expect(
+      service.update(admin, template.key, {
+        ...draft,
+        htmlTemplate: '{{#each shifts}}',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.update(admin, template.key, {
+        ...draft,
+        htmlTemplate: '<p>{{undeclaredVariable}}</p>',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects non-admin users from update and preview', async () => {
+    await expect(
+      service.update(
+        { id: 'manager-id', role: 'pharmacy_manager' },
+        template.key,
+        draft,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.preview(
+        { id: 'manager-id', role: 'pharmacy_manager' },
+        template.key,
+        draft,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(prisma.emailTemplate.findUnique).not.toHaveBeenCalled();
   });
 
   it('updates the template and creates the next version in one transaction', async () => {
@@ -145,5 +190,34 @@ describe('EmailTemplatesService', () => {
         changedById: admin.id,
       },
     });
+  });
+
+  it('propagates a version-write failure from the transaction', async () => {
+    const tx = {
+      emailTemplateVersion: {
+        findFirst: jest.fn().mockResolvedValue({ version: 2 }),
+        create: jest.fn().mockRejectedValue(new Error('version insert failed')),
+      },
+      emailTemplate: {
+        update: jest.fn().mockResolvedValue({ ...template, ...draft }),
+      },
+    };
+    prisma.emailTemplate.findUnique.mockResolvedValue(template);
+    validator.validate.mockReturnValue({
+      valid: true,
+      errors: [],
+      warnings: [],
+    });
+    prisma.$transaction.mockImplementation(
+      async (callback: (transaction: typeof tx) => Promise<unknown>) =>
+        callback(tx),
+    );
+
+    await expect(service.update(admin, template.key, draft)).rejects.toThrow(
+      'version insert failed',
+    );
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(tx.emailTemplate.update).toHaveBeenCalledTimes(1);
+    expect(tx.emailTemplateVersion.create).toHaveBeenCalledTimes(1);
   });
 });

@@ -2,9 +2,14 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import Handlebars from 'handlebars';
+import {
+  createEmailTemplatePreviewData,
+  getEmailTemplateDataSchema,
+} from 'src/email/email-template-data.schema';
 import { EmailTemplateValidationService } from 'src/email/email-template-validation.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { EmailTemplateDraftDto } from './dto/create-email-template.dto';
@@ -86,10 +91,12 @@ export class EmailTemplatesService {
   ) {
     this.requireAdmin(currentUser);
     const template = await this.findTemplate(key);
+    const dataSchema = this.getDataSchema(key);
 
     return this.templateValidator.validate({
       ...draft,
       variables: this.asVariableMap(template.variables),
+      dataSchema,
     });
   }
 
@@ -100,8 +107,13 @@ export class EmailTemplatesService {
   ) {
     this.requireAdmin(currentUser);
     const template = await this.findTemplate(key);
+    const dataSchema = this.getDataSchema(key);
     const variables = this.asVariableMap(template.variables);
-    const validation = this.templateValidator.validate({ ...draft, variables });
+    const validation = this.templateValidator.validate({
+      ...draft,
+      variables,
+      dataSchema,
+    });
 
     if (!validation.valid) {
       throw new BadRequestException({
@@ -111,7 +123,7 @@ export class EmailTemplatesService {
       });
     }
 
-    const data = this.createPreviewData(variables);
+    const data = createEmailTemplatePreviewData(dataSchema);
 
     return {
       subject: Handlebars.compile(draft.subjectTemplate)(data),
@@ -130,9 +142,11 @@ export class EmailTemplatesService {
   ) {
     this.requireAdmin(currentUser);
     const template = await this.findTemplate(key);
+    const dataSchema = this.getDataSchema(key);
     const validation = this.templateValidator.validate({
       ...updateEmailTemplateDto,
       variables: this.asVariableMap(template.variables),
+      dataSchema,
     });
 
     if (!validation.valid) {
@@ -203,59 +217,14 @@ export class EmailTemplatesService {
     return {};
   }
 
-  private createPreviewData(
-    variables: Record<string, unknown>,
-  ): Record<string, unknown> {
-    return Object.fromEntries(
-      Object.entries(variables).map(([name, type]) => [
-        name,
-        this.createPreviewValue(name, type),
-      ]),
-    );
-  }
-
-  private createPreviewValue(name: string, type: unknown): unknown {
-    if (type === 'array') {
-      return [
-        {
-          date: 'January 15, 2030',
-          startTime: '9:00 AM',
-          endTime: '5:00 PM',
-          title: 'Test Shift',
-          description: 'Test shift description',
-          gcalLink: 'https://calendar.google.com/',
-        },
-      ];
+  private getDataSchema(key: string) {
+    const schema = getEmailTemplateDataSchema(key);
+    if (!schema) {
+      throw new InternalServerErrorException(
+        `Email template "${key}" has no server-side data schema.`,
+      );
     }
 
-    if (type === 'number') return 123;
-    if (type === 'boolean') return true;
-
-    const values: Record<string, string> = {
-      companyName: 'Test Company',
-      pharmacistName: 'Test Pharmacist Name',
-      pharmacistFirstName: 'Test Pharmacist',
-      pharmacistLastName: 'Name',
-      pharmacistEmail: 'test.pharmacist@example.com',
-      portalUrl: 'https://example.test/portal',
-      resetLink: 'https://example.test/reset-password',
-      gcalLink: 'https://calendar.google.com/',
-      shiftDate: 'January 15, 2030',
-      startTime: '9:00 AM',
-      endTime: '5:00 PM',
-      shiftTitle: 'Test Shift',
-      shiftDescription: 'Test shift description',
-      cancellationReason: 'Test cancellation reason',
-      submittedByName: 'Test Admin',
-      firstName: 'Test User',
-    };
-
-    return values[name] ?? `Test ${this.formatVariableName(name)}`;
-  }
-
-  private formatVariableName(name: string): string {
-    return name
-      .replace(/([A-Z])/g, ' $1')
-      .replace(/^./, (value) => value.toUpperCase());
+    return schema;
   }
 }
