@@ -22,6 +22,7 @@ import { PharmacistCommentsModule } from './pharmacist-comments/pharmacist-comme
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { EmailModule } from './email/email.module';
+import { EmailTemplatesModule } from './email-templates/email-templates.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { EmailModule } from './email/email.module';
         limit: 100,
       },
     ]),
+    EmailTemplatesModule,
   ],
   controllers: [AppController],
   providers: [
