@@ -13,6 +13,7 @@ describe('EmailTemplatesController', () => {
     update: jest.fn(),
     validate: jest.fn(),
     preview: jest.fn(),
+    sendTestEmail: jest.fn(),
   };
   const controller = new EmailTemplatesController(
     service as unknown as EmailTemplatesService,
@@ -34,5 +35,17 @@ describe('EmailTemplatesController', () => {
     await controller.update(admin, 'shift_assigned', draft);
 
     expect(service.update).toHaveBeenCalledWith(admin, 'shift_assigned', draft);
+  });
+
+  it('passes the authenticated user, key, and DTO to test sending', async () => {
+    const dto = { ...draft, recipientEmail: 'admin@example.com' };
+
+    await controller.sendTestEmail(admin, 'shift_assigned', dto);
+
+    expect(service.sendTestEmail).toHaveBeenCalledWith(
+      admin,
+      'shift_assigned',
+      dto,
+    );
   });
 });

@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { Injectable, Logger } from '@nestjs/common';
-import { PharmacistRequest, Shift } from '../../generated/prisma/client';
+import {
+  PharmacistRequest,
+  Prisma,
+  Shift,
+} from '../../generated/prisma/client';
 import {
   Resend,
   CreateBatchSuccessResponse,
@@ -57,6 +61,47 @@ export class EmailService {
 
   private readonly portalUrl =
     process.env.FRONTEND_URL || 'https://shifthappens.vercel.app';
+
+  async sendTestEmail(params: {
+    templateKey: string;
+    to: string;
+    subject: string;
+    html: string;
+    text?: string;
+  }) {
+    try {
+      const result = await this.resend.emails.send({
+        from: 'Shift Happens <info@shifthappens.curisrx.ca>',
+        to: [params.to],
+        subject: params.subject,
+        html: params.html,
+        text: params.text,
+      });
+
+      if (result.error) throw new Error(JSON.stringify(result.error));
+
+      await this.logSingleEmailResult({
+        to: params.to,
+        templateName: params.templateKey,
+        subject: params.subject,
+        status: 'sent',
+        providerMessageId: result.data?.id,
+        metadata: { type: 'template_test' },
+      });
+
+      return { id: result.data?.id, subject: params.subject };
+    } catch (error) {
+      await this.logSingleEmailResult({
+        to: params.to,
+        templateName: params.templateKey,
+        subject: params.subject,
+        status: 'failed',
+        error,
+        metadata: { type: 'template_test' },
+      });
+      throw error;
+    }
+  }
 
   private async sendTemplateEmail(
     templateKey: string,
@@ -125,6 +170,7 @@ export class EmailService {
     providerMessageId?: string;
     templateVersion?: number;
     error?: unknown;
+    metadata?: Prisma.InputJsonObject;
   }) {
     try {
       await this.logEmail({
@@ -135,6 +181,7 @@ export class EmailService {
         providerMessageId: params.providerMessageId,
         templateVersion: params.templateVersion,
         errorMessage: params.error ? getErrorMessage(params.error) : undefined,
+        metadata: params.metadata,
       });
     } catch (dbError) {
       this.logger.error(
@@ -1292,6 +1339,7 @@ export class EmailService {
     providerMessageId?: string;
     templateVersion?: number;
     errorMessage?: string;
+    metadata?: Prisma.InputJsonObject;
   }) {
     return await this.prisma.emailLog.create({
       data: {
@@ -1302,6 +1350,7 @@ export class EmailService {
         providerMessageId: params.providerMessageId,
         templateVersion: params.templateVersion,
         errorMessage: params.errorMessage,
+        metadata: params.metadata,
       },
     });
   }

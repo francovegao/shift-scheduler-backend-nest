@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   BadRequestException,
   ForbiddenException,
@@ -11,9 +13,12 @@ import {
   getEmailTemplateDataSchema,
 } from 'src/email/email-template-data.schema';
 import { EmailTemplateValidationService } from 'src/email/email-template-validation.service';
+import { EmailService } from 'src/email/email.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { EmailTemplateDraftDto } from './dto/create-email-template.dto';
 import { UpdateEmailTemplateDto } from './dto/update-email-template.dto';
+import { SendTestEmailDto } from './dto/send-test-email.dto';
+import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 
 export type AuthenticatedUser = { id: string; role: string };
 
@@ -22,30 +27,68 @@ export class EmailTemplatesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly templateValidator: EmailTemplateValidationService,
+    private readonly emailService: EmailService,
   ) {}
 
-  async findAll(currentUser: AuthenticatedUser) {
+  async findAll(
+    currentUser: AuthenticatedUser,
+    paginationDto: PaginationDto,
+    search?: string,
+  ) {
     this.requireAdmin(currentUser);
 
-    return this.prisma.emailTemplate.findMany({
-      orderBy: { name: 'asc' },
-      select: {
-        id: true,
-        key: true,
-        name: true,
-        description: true,
-        variables: true,
-        isActive: true,
-        allowManualSend: true,
-        updatedAt: true,
-        updatedById: true,
-        versions: {
-          orderBy: { version: 'desc' },
-          take: 1,
-          select: { version: true, createdAt: true, changedById: true },
-        },
+    const { page = 1, limit = 10 } = paginationDto;
+    const skip = (page - 1) * limit;
+
+    const query = search;
+
+    const where: any = {};
+
+    const select: any = {
+      id: true,
+      key: true,
+      name: true,
+      description: true,
+      isActive: true,
+      allowManualSend: true,
+      updatedAt: true,
+      updatedById: true,
+      updatedBy: true,
+    };
+
+    if (query) {
+      where.OR = [
+        { name: { contains: query, mode: 'insensitive' } },
+        { key: { contains: query, mode: 'insensitive' } },
+        { description: { contains: query, mode: 'insensitive' } },
+        { subjectTemplate: { contains: query, mode: 'insensitive' } },
+        { htmlTemplate: { contains: query, mode: 'insensitive' } },
+        { textTemplate: { contains: query, mode: 'insensitive' } },
+      ];
+    }
+
+    const [emailTemplates, total] = await Promise.all([
+      this.prisma.emailTemplate.findMany({
+        where,
+        select,
+        skip,
+        take: limit,
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.emailTemplate.count({ where }),
+    ]);
+
+    const response = {
+      data: emailTemplates,
+      meta: {
+        totalItems: total,
+        currentPage: page,
+        itemsPerPage: limit,
+        totalPages: Math.ceil(total / limit),
       },
-    });
+    };
+
+    return response;
   }
 
   async findOne(currentUser: AuthenticatedUser, key: string) {
@@ -81,7 +124,11 @@ export class EmailTemplatesService {
       throw new NotFoundException(`Email template "${key}" not found`);
     }
 
-    return template;
+    const response = {
+      data: template,
+    };
+
+    return response;
   }
 
   async validate(
@@ -125,14 +172,49 @@ export class EmailTemplatesService {
 
     const data = createEmailTemplatePreviewData(dataSchema);
 
-    return {
-      subject: Handlebars.compile(draft.subjectTemplate)(data),
-      html: Handlebars.compile(draft.htmlTemplate)(data),
-      text: draft.textTemplate
-        ? Handlebars.compile(draft.textTemplate)(data)
-        : undefined,
-      warnings: validation.warnings,
+    const response = {
+      data: {
+        ...this.renderDraft(draft, data),
+        warnings: validation.warnings,
+      },
     };
+
+    return response;
+  }
+
+  async sendTestEmail(
+    currentUser: AuthenticatedUser,
+    key: string,
+    dto: SendTestEmailDto,
+  ) {
+    this.requireAdmin(currentUser);
+    const template = await this.findTemplate(key);
+    const dataSchema = this.getDataSchema(key);
+    const validation = this.templateValidator.validate({
+      ...dto,
+      variables: this.asVariableMap(template.variables),
+      dataSchema,
+    });
+
+    if (!validation.valid) {
+      throw new BadRequestException({
+        message: 'Email template draft is invalid.',
+        errors: validation.errors,
+        warnings: validation.warnings,
+      });
+    }
+
+    const rendered = this.renderDraft(
+      dto,
+      createEmailTemplatePreviewData(dataSchema),
+    );
+    const sent = await this.emailService.sendTestEmail({
+      templateKey: key,
+      to: dto.recipientEmail,
+      ...rendered,
+    });
+
+    return { data: { ...sent, warnings: validation.warnings } };
   }
 
   async update(
@@ -187,7 +269,12 @@ export class EmailTemplatesService {
         },
       });
 
-      return { ...updatedTemplate, version: createdVersion.version };
+      return {
+        data: {
+          ...updatedTemplate,
+          version: createdVersion.version,
+        },
+      };
     });
   }
 
@@ -226,5 +313,18 @@ export class EmailTemplatesService {
     }
 
     return schema;
+  }
+
+  private renderDraft(
+    draft: EmailTemplateDraftDto,
+    data: Record<string, unknown>,
+  ) {
+    return {
+      subject: Handlebars.compile(draft.subjectTemplate)(data),
+      html: Handlebars.compile(draft.htmlTemplate)(data),
+      text: draft.textTemplate
+        ? Handlebars.compile(draft.textTemplate)(data)
+        : undefined,
+    };
   }
 }

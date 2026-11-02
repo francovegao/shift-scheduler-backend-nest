@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { EmailTemplateValidationService } from 'src/email/email-template-validation.service';
+import { EmailService } from 'src/email/email.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { EmailTemplatesService } from './email-templates.service';
 
@@ -25,6 +26,7 @@ describe('EmailTemplatesService', () => {
     $transaction: jest.Mock;
   };
   let validator: { validate: jest.Mock };
+  let emailService: { sendTestEmail: jest.Mock };
 
   beforeEach(() => {
     prisma = {
@@ -32,15 +34,17 @@ describe('EmailTemplatesService', () => {
       $transaction: jest.fn(),
     };
     validator = { validate: jest.fn() };
+    emailService = { sendTestEmail: jest.fn() };
     service = new EmailTemplatesService(
       prisma as unknown as PrismaService,
       validator as unknown as EmailTemplateValidationService,
+      emailService as unknown as EmailService,
     );
   });
 
   it('rejects non-admin users before reading templates', async () => {
     await expect(
-      service.findAll({ id: 'manager-id', role: 'pharmacy_manager' }),
+      service.findAll({ id: 'manager-id', role: 'pharmacy_manager' }, {}),
     ).rejects.toBeInstanceOf(ForbiddenException);
 
     expect(prisma.emailTemplate.findMany).not.toHaveBeenCalled();
@@ -72,10 +76,12 @@ describe('EmailTemplatesService', () => {
     });
 
     await expect(service.preview(admin, template.key, draft)).resolves.toEqual({
-      subject: 'Shift at Test Company',
-      html: '<p>Hello Test Pharmacist</p>',
-      text: 'Hello Test Pharmacist',
-      warnings: [],
+      data: {
+        subject: 'Shift at Test Company',
+        html: '<p>Hello Test Pharmacist</p>',
+        text: 'Hello Test Pharmacist',
+        warnings: [],
+      },
     });
 
     expect(prisma.$transaction).not.toHaveBeenCalled();
@@ -106,6 +112,7 @@ describe('EmailTemplatesService', () => {
     service = new EmailTemplatesService(
       prisma as unknown as PrismaService,
       realValidator,
+      emailService as unknown as EmailService,
     );
     prisma.emailTemplate.findUnique.mockResolvedValue(template);
 
@@ -172,7 +179,9 @@ describe('EmailTemplatesService', () => {
 
     await expect(
       service.update(admin, template.key, { ...draft, isActive: true }),
-    ).resolves.toMatchObject({ version: 3, updatedById: admin.id });
+    ).resolves.toMatchObject({
+      data: { version: 3, updatedById: admin.id },
+    });
 
     expect(tx.emailTemplate.update).toHaveBeenCalledWith({
       where: { key: template.key },
@@ -219,5 +228,54 @@ describe('EmailTemplatesService', () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(tx.emailTemplate.update).toHaveBeenCalledTimes(1);
     expect(tx.emailTemplateVersion.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders and sends a valid unsaved draft to the requested test recipient', async () => {
+    prisma.emailTemplate.findUnique.mockResolvedValue(template);
+    validator.validate.mockReturnValue({
+      valid: true,
+      errors: [],
+      warnings: [],
+    });
+    emailService.sendTestEmail.mockResolvedValue({
+      id: 'provider-email-id',
+      subject: 'Shift at Test Company',
+    });
+
+    await expect(
+      service.sendTestEmail(admin, template.key, {
+        ...draft,
+        recipientEmail: 'admin@example.com',
+      }),
+    ).resolves.toEqual({
+      data: {
+        id: 'provider-email-id',
+        subject: 'Shift at Test Company',
+        warnings: [],
+      },
+    });
+
+    expect(emailService.sendTestEmail).toHaveBeenCalledWith({
+      templateKey: template.key,
+      to: 'admin@example.com',
+      subject: 'Shift at Test Company',
+      html: '<p>Hello Test Pharmacist</p>',
+      text: 'Hello Test Pharmacist',
+    });
+  });
+
+  it('does not send an invalid draft as a test email', async () => {
+    const errors = [{ field: 'htmlTemplate', message: 'Invalid syntax.' }];
+    prisma.emailTemplate.findUnique.mockResolvedValue(template);
+    validator.validate.mockReturnValue({ valid: false, errors, warnings: [] });
+
+    await expect(
+      service.sendTestEmail(admin, template.key, {
+        ...draft,
+        recipientEmail: 'admin@example.com',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(emailService.sendTestEmail).not.toHaveBeenCalled();
   });
 });

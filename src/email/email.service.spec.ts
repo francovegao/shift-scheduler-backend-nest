@@ -75,4 +75,23 @@ describe('EmailService', () => {
 
     expect(resend.emails.send).not.toHaveBeenCalled();
   });
+
+  it('sends and logs an explicitly rendered template test email', async () => {
+    await expect(
+      service.sendTestEmail({
+        templateKey: 'shift_assigned',
+        to: 'admin@example.com',
+        subject: 'Test subject',
+        html: '<p>Test email</p>',
+        text: 'Test email',
+      }),
+    ).resolves.toEqual({ id: 'email-id', subject: 'Test subject' });
+
+    expect(resend.emails.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: ['admin@example.com'],
+        subject: 'Test subject',
+      }),
+    );
+  });
 });
