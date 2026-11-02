@@ -318,16 +318,38 @@ function validateField(
   }
 }
 
-function createPreviewValue(name: string, field: EmailTemplateField): unknown {
+function createPreviewValue(
+  name: string,
+  field: EmailTemplateField,
+  itemIndex?: number,
+): unknown {
   if (field.type === 'array') {
-    return [
+    const createItem = (index: number) =>
       Object.fromEntries(
         Object.entries(field.items ?? {}).map(([itemName, itemField]) => [
           itemName,
-          createPreviewValue(itemName, itemField),
+          createPreviewValue(itemName, itemField, index),
         ]),
-      ),
-    ];
+      );
+
+    return [0, 1].map((index) => createItem(index));
+  }
+
+  const arrayFieldValues: Record<string, string[]> = {
+    title: ['Test Shift', 'Test Shift'],
+    shiftDate: ['Monday, November 9', 'Tuesday, November 10'],
+    startTime: ['9:00 AM', '10:00 AM'],
+    endTime: ['5:00 PM', '6:00 PM'],
+    description: ['Test shift description', 'Test shift description'],
+    shiftDescription: ['Test shift description', 'Test shift description'],
+    gcalLink: ['https://calendar.google.com', 'https://calendar.google.com'],
+  };
+
+  if (
+    itemIndex !== undefined &&
+    arrayFieldValues[name]?.[itemIndex] !== undefined
+  ) {
+    return arrayFieldValues[name][itemIndex];
   }
 
   const values: Record<string, string> = {
