@@ -10,7 +10,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   constructor() {
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
+      ssl: false, //when connecting via cloudsql proxy
+      //ssl: { rejectUnauthorized: false }, //when connecting without cloudsql proxy
     });
 
     const adapter = new PrismaPg(pool);
