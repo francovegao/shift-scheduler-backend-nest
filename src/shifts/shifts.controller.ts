@@ -28,7 +28,9 @@ import { CurrentUser } from 'src/auth/current-user.decorator';
 import { NotifyUsersDto } from 'src/email/dto/notify-users.dto';
 import { RequestShiftCancelDto } from 'src/email/dto/request-cancellation.dto';
 import { CreateBulkShiftsDto } from './dto/create-bulk-shifts.dto';
+import { Throttle } from '@nestjs/throttler';
 
+@Throttle({ default: { limit: 500, ttl: 60000 } })
 @Controller('shifts')
 @ApiTags('Shifts')
 export class ShiftsController {

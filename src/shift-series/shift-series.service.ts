@@ -221,7 +221,20 @@ export class ShiftSeriesService {
       throw new Error('Reference Shift not found');
     }
 
-    const timeZone = referenceShift.company.timezone;
+    let timeZone = referenceShift.company.timezone;
+
+    if (
+      updateShiftSeryDto.shiftData.companyId &&
+      updateShiftSeryDto.shiftData.companyId !== referenceShift.companyId
+    ) {
+      const newCompany = await this.prisma.company.findUnique({
+        where: { id: updateShiftSeryDto.shiftData.companyId },
+        select: { timezone: true },
+      });
+      if (newCompany) {
+        timeZone = newCompany.timezone;
+      }
+    }
 
     if (updateShiftSeryDto.shiftData.startTime === undefined) {
       throw new BadRequestException('Start Time is required');
@@ -255,7 +268,6 @@ export class ShiftSeriesService {
       shiftId: string;
       startUtc: Date;
       endUtc: Date;
-      companyId: string;
       originalPharmacistId: string | null;
     }> = [];
     const dbOverlapConditions: Prisma.ShiftWhereInput[] = [];
@@ -292,7 +304,6 @@ export class ShiftSeriesService {
         shiftId: shift.id,
         startUtc,
         endUtc,
-        companyId: shift.companyId,
         originalPharmacistId: shift.pharmacistId,
       });
 
@@ -331,7 +342,6 @@ export class ShiftSeriesService {
           ...updateShiftSeryDto.shiftData,
           startTime: preparedShift.startUtc.toISOString(),
           endTime: preparedShift.endUtc.toISOString(),
-          companyId: preparedShift.companyId,
         },
         true,
       );

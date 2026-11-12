@@ -49,7 +49,7 @@ import { EmailTemplatesModule } from './email-templates/email-templates.module';
       {
         name: 'default',
         ttl: 60000,
-        limit: 100,
+        limit: 300,
       },
     ]),
     EmailTemplatesModule,
