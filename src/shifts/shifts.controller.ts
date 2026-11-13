@@ -67,7 +67,7 @@ export class ShiftsController {
   @ApiQuery({ name: 'published', required: false, type: String })
   @ApiQuery({ name: 'sortBy', required: false, type: String })
   @ApiQuery({ name: 'sortOrder', required: false, type: String })
-  @ApiQuery({ name: 'timeFilter', required: false, type: String })
+  @ApiQuery({ name: 'timeFilter', required: false, enum: ['upcoming', 'past'] })
   @ApiOkResponse({ type: ShiftEntity, isArray: true })
   findAll(
     @CurrentUser() currentUser,
@@ -115,6 +115,7 @@ export class ShiftsController {
   @ApiQuery({ name: 'status', required: false, type: String })
   @ApiQuery({ name: 'from', required: false, type: String })
   @ApiQuery({ name: 'to', required: false, type: String })
+  @ApiQuery({ name: 'timeFilter', required: false, enum: ['upcoming', 'past'] })
   @ApiOkResponse({ type: ShiftEntity })
   findPharmacistShifts(
     @CurrentUser() currentUser,
@@ -124,6 +125,7 @@ export class ShiftsController {
     @Query('status') selectedStatus?: string,
     @Query('from') fromDate?: Date,
     @Query('to') toDate?: Date,
+    @Query('timeFilter') timeFilter?: 'upcoming' | 'past',
   ) {
     return this.shiftsService.findPharmacistShifts(
       currentUser,
@@ -133,6 +135,7 @@ export class ShiftsController {
       selectedStatus,
       fromDate,
       toDate,
+      timeFilter,
     );
   }
 

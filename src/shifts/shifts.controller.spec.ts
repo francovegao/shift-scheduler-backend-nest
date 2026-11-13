@@ -1,20 +1,37 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { ShiftsController } from './shifts.controller';
-import { ShiftsService } from './shifts.service';
 
-describe('ShiftsController', () => {
-  let controller: ShiftsController;
+describe('ShiftsController.findPharmacistShifts', () => {
+  it.each(['upcoming', 'past', undefined] as const)(
+    'forwards the %s time filter and existing query arguments',
+    (timeFilter) => {
+      const service = { findPharmacistShifts: jest.fn() };
+      const controller = new ShiftsController(service as any);
+      const user = { id: 'user-1' };
+      const pagination = { page: 2, limit: 5 };
+      const from = new Date('2026-11-01T00:00:00.000Z');
+      const to = new Date('2026-11-30T00:00:00.000Z');
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [ShiftsController],
-      providers: [ShiftsService],
-    }).compile();
+      controller.findPharmacistShifts(
+        user,
+        pagination,
+        'clinic',
+        'shift-1',
+        'taken',
+        from,
+        to,
+        timeFilter,
+      );
 
-    controller = module.get<ShiftsController>(ShiftsController);
-  });
-
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
-  });
+      expect(service.findPharmacistShifts).toHaveBeenCalledWith(
+        user,
+        pagination,
+        'clinic',
+        'shift-1',
+        'taken',
+        from,
+        to,
+        timeFilter,
+      );
+    },
+  );
 });
