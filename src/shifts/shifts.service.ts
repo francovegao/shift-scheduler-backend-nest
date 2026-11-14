@@ -547,6 +547,7 @@ export class ShiftsService {
     selectedStatus?: string,
     fromDate?: Date,
     toDate?: Date,
+    timeFilter?: 'upcoming' | 'past',
   ) {
     const { page = 1, limit = 10 } = paginationDto;
     const skip = (page - 1) * limit;
@@ -637,6 +638,13 @@ export class ShiftsService {
           ...(parsedEnd && { lte: parsedEnd }),
         },
       });
+    }
+
+    const now = new Date();
+    if (timeFilter === 'upcoming') {
+      where.AND.push({ startTime: { gte: now } });
+    } else if (timeFilter === 'past') {
+      where.AND.push({ endTime: { lt: now } });
     }
 
     const [shifts, total] = await Promise.all([
