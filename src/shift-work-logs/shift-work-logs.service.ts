@@ -4,7 +4,6 @@ import { UpdateShiftWorkLogDto } from './dto/update-shift-work-log.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpsertWorkLogDto } from './dto/upsert-shift-work-log.dto';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
-import { addDays } from 'date-fns';
 
 @Injectable()
 export class ShiftWorkLogsService {
@@ -46,14 +45,16 @@ export class ShiftWorkLogsService {
       `${targetDateStr}T${startHH}:${startMM}:00`,
       timezone,
     );
-    let endUtc = fromZonedTime(
-      `${targetDateStr}T${endHH}:${endMM}:00`,
+    let endDateStr = targetDateStr;
+    if (upsertWorkLogDto.endMinutes < upsertWorkLogDto.startMinutes) {
+      const nextDate = new Date(`${targetDateStr}T00:00:00Z`);
+      nextDate.setUTCDate(nextDate.getUTCDate() + 1);
+      endDateStr = nextDate.toISOString().slice(0, 10);
+    }
+    const endUtc = fromZonedTime(
+      `${endDateStr}T${endHH}:${endMM}:00`,
       timezone,
     );
-
-    if (upsertWorkLogDto.endMinutes < upsertWorkLogDto.startMinutes) {
-      endUtc = addDays(endUtc, 1);
-    }
 
     const diffInMilliseconds = endUtc.getTime() - startUtc.getTime();
     const durationHours =

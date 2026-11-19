@@ -326,16 +326,9 @@ async function run() {
   // 3. emailPharmacistMultipleShiftsAssigned
   await test('emailPharmacistMultipleShiftsAssigned', async () => {
     const shift = createMockShiftWithCompanyAddress();
-    const shiftsDates = [
-      new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().split('T')[0],
-      new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString().split('T')[0],
-    ];
-    await emailService.emailPharmacistMultipleShiftsAssigned(
-      TEST_EMAIL,
+    await emailService.emailPharmacistMultipleShiftsAssigned(TEST_EMAIL, [
       shift,
-      shiftsDates,
-    );
+    ]);
   });
 
   // 4. emailPharmacistSpecificShiftOpen

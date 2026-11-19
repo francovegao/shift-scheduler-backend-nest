@@ -187,8 +187,7 @@ export class ShiftSeriesService {
         // Send a SINGLE email containing shifts info
         this.emailService.emailPharmacistMultipleShiftsAssigned(
           pharmacistProfile.user.email,
-          sampleShift,
-          accumulatedDates,
+          createdShifts,
         );
       }
     }

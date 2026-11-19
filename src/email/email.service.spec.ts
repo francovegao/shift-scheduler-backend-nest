@@ -94,4 +94,64 @@ describe('EmailService', () => {
       }),
     );
   });
+
+  it('uses each saved shift instant in a multiple shift email and calendar link', async () => {
+    renderer.render.mockResolvedValue({
+      subject: 'Shifts assigned',
+      html: '<p>Shifts</p>',
+      text: 'Shifts',
+      templateVersion: 1,
+    });
+    const first = {
+      startTime: new Date('2026-12-02T16:00:00Z'),
+      endTime: new Date('2026-12-03T01:00:00Z'),
+      title: 'Day shift',
+      description: '',
+      company: {
+        name: 'Pharmacy',
+        timezone: 'America/Edmonton',
+        address: null,
+        city: null,
+        province: null,
+      },
+      pharmacist: { user: { firstName: 'Alex', email: 'alex@example.com' } },
+    };
+    const second = {
+      ...first,
+      startTime: new Date('2026-12-03T23:00:00Z'),
+      endTime: new Date('2026-12-04T07:00:00Z'),
+    };
+
+    await service.emailPharmacistMultipleShiftsAssigned('alex@example.com', [
+      first,
+      second,
+    ] as unknown as Parameters<
+      EmailService['emailPharmacistMultipleShiftsAssigned']
+    >[1]);
+
+    const data = renderer.render.mock.calls[0][1] as {
+      shifts: {
+        shiftDate: string;
+        startTime: string;
+        endTime: string;
+        gcalLink: string;
+      }[];
+    };
+    expect(
+      data.shifts.map(({ shiftDate, startTime, endTime }) => ({
+        shiftDate,
+        startTime,
+        endTime,
+      })),
+    ).toEqual([
+      { shiftDate: 'Wed, Dec 2', startTime: '10:00', endTime: '19:00' },
+      { shiftDate: 'Thu, Dec 3', startTime: '17:00', endTime: '01:00' },
+    ]);
+    expect(new URL(data.shifts[0].gcalLink).searchParams.get('dates')).toBe(
+      '20261202T160000Z/20261203T010000Z',
+    );
+    expect(new URL(data.shifts[1].gcalLink).searchParams.get('dates')).toBe(
+      '20261203T230000Z/20261204T070000Z',
+    );
+  });
 });

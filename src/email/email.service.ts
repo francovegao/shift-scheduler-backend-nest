@@ -393,16 +393,14 @@ export class EmailService {
   //Send this email to a pharmacist when admin or manager assigns multiple shifts via create shift series or create bulk shifts
   async emailPharmacistMultipleShiftsAssigned(
     to: string,
-    shift: ShiftWithCompanyAddress,
-    shiftsDates: string[],
+    shiftsAssigned: ShiftWithCompanyAddress[],
   ) {
     const templateName = 'multiple_shifts_assigned';
+    if (shiftsAssigned.length === 0) return;
+    const firstShift = shiftsAssigned[0];
 
-    const startTime = formatTime(shift.startTime, shift.company.timezone);
-    const endTime = formatTime(shift.endTime, shift.company.timezone);
-
-    const shifts = shiftsDates.map((dateStr) => {
-      const shiftDate = new Date(dateStr).toLocaleDateString('en-US', {
+    const shifts = shiftsAssigned.map((shift) => {
+      const shiftDate = shift.startTime.toLocaleDateString('en-US', {
         weekday: 'short',
         month: 'short',
         day: 'numeric',
@@ -410,21 +408,17 @@ export class EmailService {
       });
       return {
         shiftDate,
-        startTime,
-        endTime,
+        startTime: formatTime(shift.startTime, shift.company.timezone),
+        endTime: formatTime(shift.endTime, shift.company.timezone),
         title: shift.title || 'N/A',
         description: shift.description || '',
-        gcalLink: generateGCalLinkForMultipleDates(
-          shift,
-          dateStr,
-          this.portalUrl,
-        ),
+        gcalLink: generateGCalLink(shift, this.portalUrl),
       };
     });
 
     const emailData = {
-      pharmacistFirstName: shift?.pharmacist?.user?.firstName ?? '',
-      companyName: shift.company.name,
+      pharmacistFirstName: firstShift?.pharmacist?.user?.firstName ?? '',
+      companyName: firstShift.company.name,
       shifts,
       portalUrl: this.portalUrl,
     };
@@ -1378,64 +1372,15 @@ function generateGCalLink(
 ) {
   const baseUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
 
-  const start = formatInTimeZone(
-    shift.startTime,
-    shift.company?.timezone,
-    "yyyyMMdd'T'HHmmssXXX",
-  );
-  const end = formatInTimeZone(
-    shift.endTime,
-    shift.company?.timezone,
-    "yyyyMMdd'T'HHmmssXXX",
-  );
+  const toCalendarUTC = (date: Date) =>
+    date.toISOString().replace(/[-:]|\.\d{3}/g, '');
+  const start = toCalendarUTC(shift.startTime);
+  const end = toCalendarUTC(shift.endTime);
   const appLink = portalUrl;
   const eventDetails = `Details: ${shift.title || ''}: ${shift.description || ''} \n\n<a href="${appLink}">Click here to view all details</a>`;
 
   const params = new URLSearchParams({
     text: `Shift at ${shift.company?.name}`,
-    dates: `${start}/${end}`,
-    details: eventDetails,
-    location:
-      getFullAddress(
-        shift.company?.address,
-        shift.company?.city,
-        shift.company?.province,
-        null,
-      ) || '',
-  });
-
-  return `${baseUrl}&${params.toString()}`;
-}
-
-function generateGCalLinkForMultipleDates(shift, dateStr, portalUrl: string) {
-  const baseUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
-
-  const combineDateAndTime = (baseDateStr, timeSource) => {
-    if (!baseDateStr || !timeSource) return '';
-
-    const timeIsoStr =
-      timeSource instanceof Date
-        ? timeSource.toISOString()
-        : String(timeSource);
-
-    const datePart = new Date(baseDateStr).toISOString().substring(0, 10);
-
-    const timePart = timeIsoStr.includes('T')
-      ? timeIsoStr.split('T')[1]
-      : timeIsoStr;
-
-    const combinedIso = `${datePart}T${timePart}`;
-    return combinedIso.replace(/[-:]/g, '').replace(/\.\d+/, '');
-  };
-
-  const start = combineDateAndTime(dateStr, shift.startTime);
-  const end = combineDateAndTime(dateStr, shift.endTime);
-
-  const appLink = portalUrl;
-  const eventDetails = `Details: ${shift.title || ''}: ${shift.description || ''} \n\n<a href="${appLink}">Click here to view all details</a>`;
-
-  const params = new URLSearchParams({
-    text: `Shift at ${shift.company?.name || 'Company'}`,
     dates: `${start}/${end}`,
     details: eventDetails,
     location:
