@@ -1,5 +1,6 @@
 import {
   Controller,
+  UseInterceptors,
   Get,
   Post,
   Body,
@@ -25,6 +26,8 @@ import { UserEntity } from './entities/user.entity';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
 import { Throttle } from '@nestjs/throttler';
+
+import { ShiftWallClockInterceptor } from '../shifts/shift-wall-clock.interceptor';
 
 @Controller('users')
 @ApiTags('Users')
@@ -148,6 +151,7 @@ export class UsersController {
     return user;
   }
 
+  @UseInterceptors(ShiftWallClockInterceptor)
   @Get('/shifts/:id')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()

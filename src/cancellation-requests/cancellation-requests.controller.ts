@@ -1,5 +1,6 @@
 import {
   Controller,
+  UseInterceptors,
   Get,
   Post,
   Body,
@@ -22,6 +23,9 @@ import { CancellationRequestsEntity } from './entities/cancellation-request.enti
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { ProcessCancellationRequestDto } from './dto/process-cancellation-request.dto';
 
+import { ShiftWallClockInterceptor } from '../shifts/shift-wall-clock.interceptor';
+
+@UseInterceptors(ShiftWallClockInterceptor)
 @Controller('cancellation-requests')
 @ApiTags('cancellation-requests')
 export class CancellationRequestsController {

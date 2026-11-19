@@ -1,5 +1,6 @@
 import {
   Controller,
+  UseInterceptors,
   Get,
   Post,
   Body,
@@ -22,6 +23,8 @@ import {
 import { CompanyEntity } from './entities/company.entity';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
+
+import { ShiftWallClockInterceptor } from '../shifts/shift-wall-clock.interceptor';
 
 @Controller('companies')
 @ApiTags('Companies')
@@ -65,6 +68,7 @@ export class CompaniesController {
     return this.companiesService.findOne(id);
   }
 
+  @UseInterceptors(ShiftWallClockInterceptor)
   @Get('/shifts/:id')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()

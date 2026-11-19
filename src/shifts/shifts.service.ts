@@ -1052,6 +1052,7 @@ export class ShiftsService {
         skip,
         take: limit,
         orderBy: { startTime: 'asc' },
+        include: { company: { select: { timezone: true } } },
       }),
       this.prisma.shift.count({ where }),
       this.prisma.shift.groupBy({
@@ -1162,8 +1163,10 @@ export class ShiftsService {
   }
 
   findOne(id: string) {
-    //return `This action returns a #${id} shift`;
-    return this.prisma.shift.findUnique({ where: { id } });
+    return this.prisma.shift.findUnique({
+      where: { id },
+      include: { company: { select: { timezone: true } } },
+    });
   }
 
   async update(id: string, updateShiftDto: UpdateShiftDto, skipEmail = false) {

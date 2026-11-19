@@ -1,5 +1,6 @@
 import {
   Controller,
+  UseInterceptors,
   Get,
   Post,
   Body,
@@ -30,6 +31,9 @@ import { RequestShiftCancelDto } from 'src/email/dto/request-cancellation.dto';
 import { CreateBulkShiftsDto } from './dto/create-bulk-shifts.dto';
 import { Throttle } from '@nestjs/throttler';
 
+import { ShiftWallClockInterceptor } from './shift-wall-clock.interceptor';
+
+@UseInterceptors(ShiftWallClockInterceptor)
 @Throttle({ default: { limit: 500, ttl: 60000 } })
 @Controller('shifts')
 @ApiTags('Shifts')

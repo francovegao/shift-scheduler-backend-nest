@@ -1,5 +1,6 @@
 import {
   Controller,
+  UseInterceptors,
   Get,
   Post,
   Body,
@@ -23,6 +24,8 @@ import { LocationEntity } from './entities/location.entity';
 import { PaginationDto } from 'src/common/pagination/dto/pagination-query.dto';
 import { CurrentUser } from 'src/auth/current-user.decorator';
 import { FirebaseAuthGuard } from 'src/auth/firebase-auth.guard';
+
+import { ShiftWallClockInterceptor } from '../shifts/shift-wall-clock.interceptor';
 
 @Controller('locations')
 @ApiTags('Locations')
@@ -71,6 +74,7 @@ export class LocationsController {
     return this.locationsService.findOne(id);
   }
 
+  @UseInterceptors(ShiftWallClockInterceptor)
   @Get('/shifts/:id')
   @UseGuards(FirebaseAuthGuard)
   @ApiBearerAuth()

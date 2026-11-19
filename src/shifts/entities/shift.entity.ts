@@ -23,6 +23,12 @@ export class ShiftEntity implements Shift {
   @ApiProperty()
   endTime: Date;
 
+  @ApiProperty({ example: '2026-12-02T10:00:00' })
+  localStartTime: string;
+
+  @ApiProperty({ example: '2026-12-02T19:00:00' })
+  localEndTime: string;
+
   @ApiProperty()
   payRate: number;
 
